@@ -12,7 +12,9 @@ Recovery was constrained: `zpool online` left the vdev faulted, and `zpool repla
 
 ## Decision
 
-Build and import the pool using `/dev/disk/by-id/` links, which derive from model and serial and therefore survive reboots and controller reordering. The `r730xd-zfs` role resolves each ZFS bay to a by-id path alongside its kernel name and passes those to `zpool create`.
+Build and import the pool using `/dev/disk/by-id/` links, which are derived from durable disk identity rather than enumeration order and therefore survive reboots and controller reordering. The `r730xd-zfs` role resolves each ZFS bay to a by-id path alongside its kernel name and passes those to `zpool create`.
+
+Two link families live under `/dev/disk/by-id` and both are stable: `wwn-*` (World Wide Name) and `ata-<model>_<serial>`. The live pool records `wwn-*` paths, because `zpool import -d /dev/disk/by-id` scans the directory and takes what it finds first; passing individual device files to `-d` to force the `ata-*` form does not work, as `-d` expects a directory to scan for labels. The role generates `ata-*` paths for a fresh `zpool create`, where the path is chosen rather than discovered. The vdev label additionally records the `ata-*` name in its `devid` field regardless, so the mapping from either form to model and serial is always recoverable via `zdb -C`.
 
 Separately, the role's pool-existence guard now detects an **exported** pool, not just an imported one, and refuses to create over existing filesystem signatures unless `zfs_allow_destructive_create` is explicitly set.
 
@@ -26,5 +28,5 @@ Separately, the role's pool-existence guard now detects an **exported** pool, no
 
 - **Device reshuffle no longer degrades the pool.** by-id links track the physical disk, so power cuts and controller reordering are no longer a storage-integrity event.
 - **The creation guard can no longer destroy an intact pool.** `zpool list` only reports imported pools, so the previous guard read "absent" during exactly the maintenance window this ADR describes — and existing signatures auto-escalated the create to `-f`. That path is now a hard failure requiring explicit opt-in.
-- **Failure identification is by serial, not bay.** `zpool status` names a model+serial, so replacing a failed disk requires mapping serial to physical bay first. Accepted deliberately; bay aliases remain available later if that friction proves real.
+- **Failure identification requires a lookup.** `zpool status` names a `wwn-*` identifier on the live pool, so replacing a failed disk means mapping that to a physical bay first — via `zdb -C tank`, whose `devid` carries the model and serial, and `phys_path`, whose SCSI id corresponds to the bay. Accepted deliberately; bay aliases via `vdev_id.conf` remain available later if that friction proves real.
 - **The underlying power exposure is untouched.** This prevents a reshuffle from degrading the pool, but the rack has no UPS and took six unprotected power cuts in 2.5 weeks (see #212). This ADR addresses a symptom; the power condition is tracked separately.

@@ -13,7 +13,9 @@ postgres_port: 5432
 
 # Directories
 postgres_data_dir: "/mnt/zfs/foundation/postgres/data"
-postgres_backup_dir: "/mnt/zfs/foundation/postgres/backup"
+# Backups land on the MergerFS/SnapRAID tier, not the ZFS pool holding the data
+# they protect — a pool-level loss must not take the dumps with it.
+postgres_backup_dir: "/mnt/pool/backups/postgres"
 postgres_compose_dir: "/opt/foundation/postgres"
 
 # Superuser password (set via vault — see group_vars/all/vars.yml)

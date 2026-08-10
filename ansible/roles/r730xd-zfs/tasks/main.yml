@@ -67,6 +67,9 @@
   register: zpool_check
   changed_when: false
   failed_when: false
+  # Read-only. Must run under --check, otherwise rc is undefined and every
+  # downstream `when: zpool_check.rc != 0` misfires toward the create path.
+  check_mode: false
 
 - name: Build device list for pool creation
   ansible.builtin.set_fact:

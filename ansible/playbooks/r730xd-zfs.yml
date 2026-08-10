@@ -41,6 +41,9 @@
       become: false
       register: idrac_pdisks_raw
       changed_when: false
+      # Read-only discovery. Must run under --check too, or the facts derived
+      # from it are undefined and the play fails before reaching anything real.
+      check_mode: false
       no_log: true
 
     - name: Parse iDRAC disk info into bay→serial mapping
@@ -76,6 +79,7 @@
       ansible.builtin.command: lsblk -J -b -o NAME,SERIAL,SIZE,TYPE
       register: lsblk_output
       changed_when: false
+      check_mode: false
 
     - name: Build serial→device mapping from host
       ansible.builtin.set_fact:
@@ -99,6 +103,7 @@
       ansible.builtin.command: "find /dev/disk/by-id -type l -printf '%l %f\\n'"
       register: by_id_links
       changed_when: false
+      check_mode: false
 
     - name: Build device to by-id path map
       ansible.builtin.set_fact:

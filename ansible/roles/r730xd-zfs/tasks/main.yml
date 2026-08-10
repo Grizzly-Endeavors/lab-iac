@@ -7,13 +7,15 @@
     that:
       - zfs_drives is defined
       - zfs_drives | length > 0
+      - zfs_drives | selectattr('by_id', 'defined') | list | length == zfs_drives | length
     fail_msg: >
-      zfs_drives fact is not set. This role must be called from
-      r730xd-zfs.yml which resolves ZFS drive bays via iDRAC in pre_tasks.
+      zfs_drives fact is not set, or entries are missing the by_id key. This role
+      must be called from r730xd-zfs.yml, which resolves ZFS drive bays via iDRAC
+      and maps each to a stable /dev/disk/by-id path in pre_tasks.
 
 - name: Display ZFS drives
   ansible.builtin.debug:
-    msg: "Bay {{ item.bay }}: /dev/{{ item.device }} — serial {{ item.serial }}"
+    msg: "Bay {{ item.bay }}: {{ item.by_id }} (currently /dev/{{ item.device }}) — serial {{ item.serial }}"
   loop: "{{ zfs_drives }}"
   loop_control:
     label: "bay{{ item.bay }}"
@@ -55,15 +57,20 @@
     mode: "0644"
   notify: Apply ARC max at runtime
 
-- name: Check if pool already exists
-  ansible.builtin.command: "zpool list {{ zfs_pool_name }}"
+# An exported pool is still a pool. `zpool list` only reports imported pools, so
+# checking it alone reports "absent" during any window where the pool is exported
+# for maintenance — and the create path below would then overwrite intact data.
+- name: Check if pool exists (imported or exported)
+  ansible.builtin.shell: >
+    zpool list {{ zfs_pool_name }} >/dev/null 2>&1 ||
+    zpool import -d /dev/disk/by-id 2>/dev/null | grep -qE "pool: {{ zfs_pool_name }}$"
   register: zpool_check
   changed_when: false
   failed_when: false
 
 - name: Build device list for pool creation
   ansible.builtin.set_fact:
-    zfs_device_list: "{{ zfs_drives | map(attribute='device') | map('regex_replace', '^', '/dev/') | list }}"
+    zfs_device_list: "{{ zfs_drives | map(attribute='by_id') | list }}"
   when: zpool_check.rc != 0
 
 - name: Check for existing signatures on ZFS drives (disk and partitions)
@@ -73,32 +80,44 @@
   loop: "{{ zfs_device_list | default([]) }}"
   when: zpool_check.rc != 0
 
-- name: Warn about existing signatures
-  ansible.builtin.debug:
-    msg: "WARNING: {{ item.item }} has existing signatures — zpool create -f will be used:\n{{ item.stdout }}"
-  loop: "{{ zfs_sig_check.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item | default('n/a') }}"
+# Existing signatures are the strongest possible reason NOT to force a create.
+# Refuse, and make the operator opt in per-run once they've confirmed the disks
+# are genuinely disposable.
+- name: Refuse to create over existing filesystem signatures
+  ansible.builtin.fail:
+    msg: |
+      Refusing to create pool '{{ zfs_pool_name }}' — these devices already carry
+      filesystem signatures, so creating would destroy existing data:
+
+      {% for r in zfs_sig_check.results | default([]) | selectattr('stdout', 'defined') %}
+      {% if r.stdout | trim | length > 0 %}
+        {{ r.item }}:
+          {{ r.stdout | trim | indent(10) }}
+      {% endif %}
+      {% endfor %}
+
+      If the pool is merely exported, import it instead of recreating it.
+      To wipe these disks deliberately, re-run with -e zfs_allow_destructive_create=true
   when:
     - zpool_check.rc != 0
-    - item.stdout is defined
-    - item.stdout | trim | length > 0
+    - not (zfs_allow_destructive_create | default(false) | bool)
+    - zfs_sig_check.results | default([])
+      | selectattr('stdout', 'defined')
+      | map(attribute='stdout')
+      | map('trim')
+      | select('ne', '')
+      | list | length > 0
 
 - name: Determine if force create is needed
   ansible.builtin.set_fact:
-    zfs_force_flag: >-
-      {{ (zfs_sig_check.results | default([])
-          | selectattr('stdout', 'defined')
-          | map(attribute='stdout')
-          | map('trim')
-          | select('ne', '')
-          | list | length > 0) | ternary('-f', '') }}
+    zfs_force_flag: "{{ (zfs_allow_destructive_create | default(false) | bool) | ternary('-f', '') }}"
   when: zpool_check.rc != 0
 
 - name: Create ZFS pool
   ansible.builtin.command: >
     zpool create
     {{ zfs_force_flag | default('') }}
+    -d /dev/disk/by-id
     -o ashift={{ zfs_ashift }}
     -O compression={{ zfs_compression }}
     -O atime={{ zfs_atime }}

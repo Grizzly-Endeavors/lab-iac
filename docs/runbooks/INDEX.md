@@ -16,8 +16,9 @@ One line per runbook. See [`README.md`](README.md) for what runbooks are and whe
 - [mail.md](mail.md) — deployment status, architecture, and operator runbook for the mail stack. **Start here for mail.**
 - [stalwart-cli.md](stalwart-cli.md) — driving Stalwart's schema-driven config CLI (verbs, object model, recipes).
 
-## Storage (versitygw S3)
+## Storage
 
+- [zfs-pool-maintenance.md](zfs-pool-maintenance.md) — quiescing everything that touches `tank` so the pool can be exported, and bringing it back in order.
 - [versitygw-deploy.md](versitygw-deploy.md) — how the s3-hot / s3-bulk gateways are stood up and operated.
 - [versitygw-cli.md](versitygw-cli.md) — driving the versitygw tool (accounts, buckets, IAM).
 

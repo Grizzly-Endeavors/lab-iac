@@ -37,6 +37,7 @@ One line per decision, grouped by domain. See [`README.md`](README.md) for what 
 - [012-hot-services-on-zfs-minio-split](012-hot-services-on-zfs-minio-split.md) — hot services on ZFS; MinIO split obs/bulk (historical — MinIO since removed).
 - [055-s3-object-store-versitygw](055-s3-object-store-versitygw.md) — MinIO → Versity S3 Gateway.
 - [056-redis-to-valkey](056-redis-to-valkey.md) — Redis → Valkey on a backend-agnostic kv-cache slot.
+- [070-zfs-pool-stable-device-paths](070-zfs-pool-stable-device-paths.md) — the ZFS pool addresses vdevs by `/dev/disk/by-id`, and the creation guard detects exported pools.
 
 ## Cluster networking, DNS & internal TLS
 

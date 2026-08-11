@@ -78,6 +78,14 @@ groups:
           summary: >-
             CPU at {{ '{{' }} $value {{ '}}' }}°C
             on {{ '{{' }} $labels.instance {{ '}}' }}
+      - alert: UncleanReboot
+        expr: changes(node_boot_time_seconds[1h]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host {{ '{{' }} $labels.instance {{ '}}' }} has rebooted in the last hour"
+          description: "A reboot was detected via node_boot_time_seconds. Check journald for graceful shutdown logs."
 
       - alert: ECCMemoryErrors
         expr: monitoring_ipmi_memory_errors_sel > 0

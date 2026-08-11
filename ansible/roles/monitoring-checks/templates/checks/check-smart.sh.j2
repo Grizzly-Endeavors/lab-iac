@@ -30,14 +30,18 @@ for dev in /dev/sd? /dev/nvme?n?; do
     [[ -b "$dev" ]] || continue
 
     device_name=$(basename "$dev")
+    # Find the stable by-id link for this device
+    stable_id=$(ls -l /dev/disk/by-id/ 2>/dev/null | grep " -> ${dev}$" | awk '{print $9}' | head -n1)
+    [[ -z "$stable_id" ]] && stable_id="${dev}"
+    stable_id=${stable_id#/dev/}
 
     # Overall SMART health
     if ! smartctl -H "$dev" 2>/dev/null | grep -q "PASSED\|OK"; then
-        alert "critical" "$CHECK" "health_${device_name}" "SMART health check FAILED for ${dev}"
-        write_metric_labeled "monitoring_smart_healthy" "device=\"${dev}\"" "0"
+        alert "critical" "$CHECK" "health_${stable_id}" "SMART health check FAILED for ${dev}"
+        write_metric_labeled "monitoring_smart_healthy" "device=\"${stable_id}\"" "0"
     else
-        clear_alert "$CHECK" "health_${device_name}"
-        write_metric_labeled "monitoring_smart_healthy" "device=\"${dev}\"" "1"
+        clear_alert "$CHECK" "health_${stable_id}"
+        write_metric_labeled "monitoring_smart_healthy" "device=\"${stable_id}\"" "1"
     fi
 
     # Temperature (SATA drives use attribute 194, NVMe uses smartctl -A)
@@ -49,25 +53,24 @@ for dev in /dev/sd? /dev/nvme?n?; do
     fi
 
     if [[ -n "$temp" && "$temp" =~ ^[0-9]+$ ]]; then
-        write_metric_labeled "monitoring_smart_temperature_celsius" "device=\"${dev}\"" "$temp"
+        write_metric_labeled "monitoring_smart_temperature_celsius" "device=\"${stable_id}\"" "$temp"
         if (( temp >= TEMP_CRIT )); then
-            alert "critical" "$CHECK" "temp_${device_name}" "Drive ${dev} temperature CRITICAL: ${temp}°C (threshold: ${TEMP_CRIT}°C)"
+            alert "critical" "$CHECK" "temp_${stable_id}" "Drive ${dev} temperature CRITICAL: ${temp}°C (threshold: ${TEMP_CRIT}°C)"
         elif (( temp >= TEMP_WARN )); then
-            alert "warning" "$CHECK" "temp_${device_name}" "Drive ${dev} temperature WARNING: ${temp}°C (threshold: ${TEMP_WARN}°C)"
+            alert "warning" "$CHECK" "temp_${stable_id}" "Drive ${dev} temperature WARNING: ${temp}°C (threshold: ${TEMP_WARN}°C)"
         else
-            clear_alert "$CHECK" "temp_${device_name}"
+            clear_alert "$CHECK" "temp_${stable_id}"
         fi
     fi
 
-    # Reallocated sectors (SATA attribute 5)
     if [[ "$dev" == /dev/sd* ]]; then
         reallocated=$(smartctl -A "$dev" 2>/dev/null | awk '/^  5/{print $10}' || true)
         if [[ -n "$reallocated" && "$reallocated" =~ ^[0-9]+$ ]]; then
-            write_metric_labeled "monitoring_smart_reallocated_sectors" "device=\"${dev}\"" "$reallocated"
+            write_metric_labeled "monitoring_smart_reallocated_sectors" "device=\"${stable_id}\"" "$reallocated"
             if (( reallocated >= REALLOCATED_WARN )); then
-                alert "warning" "$CHECK" "reallocated_${device_name}" "Drive ${dev} has ${reallocated} reallocated sectors (threshold: ${REALLOCATED_WARN})"
+                alert "warning" "$CHECK" "reallocated_${stable_id}" "Drive ${dev} has ${reallocated} reallocated sectors (threshold: ${REALLOCATED_WARN})"
             else
-                clear_alert "$CHECK" "reallocated_${device_name}"
+                clear_alert "$CHECK" "reallocated_${stable_id}"
             fi
         fi
     fi

@@ -14,6 +14,12 @@ Centralized CI gate — versioned `grizzly-gate` image runs per-language checks 
 - **How:** [runbooks/ci-gate.md](docs/runbooks/ci-gate.md) (operate) · **integrate:** [integration/deploy.md](docs/integration/deploy.md) (get an app onto the cluster through the gate) · overview [ci-gate.md](docs/ci-gate.md), threat model [ci-gate-coverage.md](docs/ci-gate-coverage.md).
 - **Code:** `.github/workflows/gate.yaml` (reusable), `kubernetes/infrastructure/argo-workflows/build-gate-image.yaml` (build), `kubernetes/infrastructure/kyverno{,-policies}/` (admission), `docker/grizzly-gate/` (pointer stub). Signing key: OpenBao `secret/grizzly-platform/cicd/cosign`.
 
+### GitLab CI runners
+Self-hosted GitLab Runner pool for a GitLab SaaS group, using the Kubernetes executor. Split across two namespaces so job code runs without the runner token, without Kubernetes API access, and without LAN reach — internet-only egress, rootless BuildKit for image builds.
+- **Why:** [ADR-071](docs/decisions/071-self-hosted-gitlab-runners.md) (isolation posture, IPv6 denial, no distributed cache).
+- **How:** [runbooks/gitlab-runners.md](docs/runbooks/gitlab-runners.md) (create the runner, token chain, BuildKit recipe, failure modes).
+- **Code:** `kubernetes/infrastructure/gitlab-runners/`, token ExternalSecret in `kubernetes/infrastructure/external-secrets-stores/gitlab-runners.yaml`.
+
 ### Secrets (OpenBao)
 OpenBao on the R730xd (LAN-only) is the platform secrets source of truth. K8s reads via External Secrets Operator; Ansible reads via AppRole. Infisical holds *only* the unseal keys (bootstrap).
 - **Why:** [ADR-023](docs/decisions/023-self-hosted-openbao-on-r730xd.md) (self-hosted OpenBao), [024](docs/decisions/024-platform-secrets-on-openbao.md) (ESO + AppRole), [035](docs/decisions/035-internal-tls-openbao-pki.md) (PKI), [048](docs/decisions/048-first-party-app-secrets-domain.md) (app secrets domain).

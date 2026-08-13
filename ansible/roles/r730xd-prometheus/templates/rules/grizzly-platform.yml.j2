@@ -372,6 +372,29 @@ groups:
             ARC runner pod {{ '{{' }} $labels.pod {{ '}}' }}
             has restarted {{ '{{' }} $value | printf "%.0f" {{ '}}' }} times in 15 minutes
 
+      - alert: GitLabRunnerDown
+        expr: up{job="gitlab-runner"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GitLab Runner manager is unreachable — GitLab CI jobs will queue unpicked"
+
+      - alert: GitLabRunnerJobsQuotaExhausted
+        expr: >-
+          kube_resourcequota{namespace="gitlab-runner-jobs",resource="limits.cpu",type="used"}
+          / ignoring(type)
+          kube_resourcequota{namespace="gitlab-runner-jobs",resource="limits.cpu",type="hard"}
+          > 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: >-
+            gitlab-runner-jobs is at
+            {{ '{{' }} $value | humanizePercentage {{ '}}' }} of its CPU quota —
+            new CI job pods will be refused at admission
+
       - alert: ArgoControllerDown
         expr: up{job="argo-workflows",component="workflow-controller"} == 0
         for: 5m

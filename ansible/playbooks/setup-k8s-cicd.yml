@@ -140,6 +140,13 @@
         mode: "0644"
       become: yes
 
+    - name: Template GitLab Runner targets
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../roles/r730xd-prometheus/templates/targets.d/k8s-gitlab-runner.yml.j2"
+        dest: "/opt/observability/prometheus/targets.d/k8s-gitlab-runner.yml"
+        mode: "0644"
+      become: yes
+
     - name: Re-template Prometheus configuration
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../roles/r730xd-prometheus/templates/prometheus.yml.j2"

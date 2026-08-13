@@ -182,6 +182,12 @@ scrape_configs:
           - "/etc/prometheus/targets.d/k8s-argo.yml"
         refresh_interval: 30s
 
+  - job_name: "gitlab-runner"
+    file_sd_configs:
+      - files:
+          - "/etc/prometheus/targets.d/k8s-gitlab-runner.yml"
+        refresh_interval: 30s
+
   # zot OCI registry metrics (Prometheus extension on the registry HTTP port,
   # reached via the registry NodePort; default /metrics path).
   - job_name: "registry-zot"

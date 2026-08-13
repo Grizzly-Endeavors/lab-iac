@@ -27,14 +27,18 @@ the BMCs, or the router.
    New group runner**. Set:
    - **Tags** — leave empty and tick **"Run untagged jobs"**, so every project
      in the group picks the runner up without editing its `.gitlab-ci.yml`.
-   - **Maximum job timeout** — leave blank; the runner enforces 3600s itself.
+   - **Maximum job timeout** — set it here (3600s is a reasonable ceiling), so
+     a hung pipeline releases its concurrency slot.
 
    GitLab shows a `glrt-…` authentication token exactly once. Copy it.
 
-   Tags, `locked`, `protected`, and run-untagged are properties of the runner
-   *object in GitLab*, not of the chart. The chart strips those flags when the
-   token starts with `glrt-`, so setting them in `helmrelease.yaml` does
-   nothing — change them in the GitLab UI.
+   Tags, `locked`, `protected`, run-untagged, and the job timeout are all
+   properties of the runner *object in GitLab*, not of the chart — an
+   authentication token carries them from the server. Setting the first four in
+   `helmrelease.yaml` is silently ignored; setting `maximumTimeout` is worse,
+   because the chart emits `--maximum-timeout` on register regardless and
+   GitLab rejects the whole registration with a FATAL error, crash-looping the
+   pod. Change all of them in the GitLab UI.
 
 2. **Store the token in 1Password** (vault `grizzly-platform`, item
    `cicd-gitlab-runner`, field `token`). Paste at the prompt so the value never
@@ -147,6 +151,8 @@ kubectl -n gitlab-runners logs deploy/gitlab-runner | tail -50
 ```
 
 A revoked or rotated token surfaces as a registration failure loop in the logs.
+So does adding `runners.maximumTimeout` back to `helmrelease.yaml` — the FATAL
+message names the reserved flags explicitly.
 Re-create the runner in GitLab, update the 1Password field, then
 `kubectl -n gitlab-runners rollout restart deploy/gitlab-runner`.
 

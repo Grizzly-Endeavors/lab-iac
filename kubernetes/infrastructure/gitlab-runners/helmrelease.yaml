@@ -13,6 +13,11 @@ spec:
         kind: HelmRepository
         name: gitlab
   targetNamespace: gitlab-runners
+  # Without this, helm-controller derives `<targetNamespace>-<name>` — the
+  # chart's fullname template follows the release name, so every resource
+  # would be `gitlab-runners-gitlab-runner` and the metrics Service selector
+  # (and every runbook command) would miss.
+  releaseName: gitlab-runner
   install:
     createNamespace: false
   values:
@@ -65,9 +70,12 @@ spec:
       # namespace.yaml for why the split matters.
       jobNamespace: gitlab-runner-jobs
       name: grizzly-homelab
-      # Ceiling on a single job, so a hung pipeline releases its concurrency
-      # slot rather than holding it until someone notices.
-      maximumTimeout: 3600
+      # `maximumTimeout` is deliberately absent. The chart emits
+      # `--maximum-timeout` on register unconditionally, but GitLab refuses
+      # that flag alongside a `glrt-` authentication token — registration
+      # fails FATAL and the pod crash-loops. The job timeout is a property of
+      # the runner object on the GitLab server; set it there instead
+      # (docs/runbooks/gitlab-runners.md).
       config: |
         [[runners]]
           [runners.kubernetes]

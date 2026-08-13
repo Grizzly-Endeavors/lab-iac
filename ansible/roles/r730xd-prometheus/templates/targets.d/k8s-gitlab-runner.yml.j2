@@ -1,7 +1,7 @@
 # Managed by Ansible — r730xd-prometheus role
 # GitLab Runner manager metrics exposed via NodePort (ADR-071)
 - targets:
-    - "{{ hostvars[groups['k8s_control_plane'][0]]['ansible_host'] }}:30894"
+    - "{{ hostvars[groups['k8s_control_plane'][0]]['ansible_host'] }}:30895"
   labels:
     env: "grizzly-platform"
     instance: "gitlab-runner"

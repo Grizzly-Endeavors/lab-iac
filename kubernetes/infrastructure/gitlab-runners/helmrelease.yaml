@@ -78,6 +78,11 @@ spec:
       # (docs/runbooks/gitlab-runners.md).
       config: |
         [[runners]]
+          # The runner long-polls GitLab for work; at the default of 1 it
+          # serialises those requests and warns that jobs will be delayed by
+          # the poll timeout. Matched to `concurrent` so each slot can be
+          # filled without queueing behind another slot's poll.
+          request_concurrency = 4
           [runners.kubernetes]
             namespace = "gitlab-runner-jobs"
             image = "debian:trixie-slim"
@@ -107,8 +112,14 @@ spec:
           # Skipping the AAAA lookup keeps glibc tooling from opening an IPv6
           # connection that will be dropped and waiting out the timeout.
           [runners.kubernetes.dns_config]
+          # `value` is empty rather than absent purely to satisfy the runner's
+          # config schema, which types it as a non-nullable string and logs a
+          # validation warning on every reload without it. Kubernetes renders
+          # an empty value and an absent one identically — `options no-aaaa`
+          # either way — so this changes nothing the pod sees.
           [[runners.kubernetes.dns_config.options]]
             name = "no-aaaa"
+            value = ""
           # Rootless BuildKit needs unconfined seccomp and AppArmor to nest a
           # user namespace — same posture ADR-057 accepted for the in-cluster
           # image builds. It applies to every build container, not only the

@@ -15,7 +15,7 @@ Architecture and the reasoning behind the isolation:
 | Runner auth token | 1Password `cicd-gitlab-runner/token` → ESO → `gitlab-runner-token` secret |
 | Network confinement | `network-policy.yaml` — DNS + IPv4 internet, no LAN, no IPv6 |
 | RBAC | `rbac.yaml` — executor minimum in the job namespace; job pods get nothing |
-| Metrics | NodePort 30894 → Prometheus job `gitlab-runner` |
+| Metrics | NodePort 30895 → Prometheus job `gitlab-runner` |
 
 Job pods are `gitlab-runner-jobs`-only and hold no platform credentials. They
 cannot reach anything on the LAN — the foundation stores, the secret store, zot,
@@ -122,7 +122,7 @@ heartbeats every few seconds and shows **online** there.
 
 ### Metrics and alerts
 
-Prometheus scrapes NodePort 30894 as job `gitlab-runner`. Two alerts fire to
+Prometheus scrapes NodePort 30895 as job `gitlab-runner`. Two alerts fire to
 the usual destination:
 
 | Alert | Meaning | Response |

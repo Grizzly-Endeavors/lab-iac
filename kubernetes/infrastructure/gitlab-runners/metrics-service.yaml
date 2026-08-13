@@ -13,6 +13,6 @@ spec:
   ports:
     - port: 9252
       targetPort: 9252
-      nodePort: 30894
+      nodePort: 30895
       protocol: TCP
       name: metrics

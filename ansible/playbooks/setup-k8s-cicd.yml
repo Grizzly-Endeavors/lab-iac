@@ -116,6 +116,10 @@
 - name: Deploy CI/CD Prometheus targets and alert rules
   hosts: r730xd
   gather_facts: no
+  # Tagged so the scrape targets can be re-templated on their own when a CI
+  # component is added, without re-running the cluster-side plays. Same
+  # convention as setup-authentik.yml.
+  tags: [metrics]
 
   vars_files:
     - "{{ playbook_dir }}/../roles/r730xd-prometheus/defaults/main.yml"

@@ -1,7 +1,7 @@
 # Network confinement for GitLab CI (ADR-071).
 #
 # Job pods run code from the GitLab group, so they get internet egress and
-# nothing else: no LAN, no foundation stores, no OpenBao, no other namespace,
+# nothing else: no LAN, no foundation stores, no secret store, no other namespace,
 # no cluster API. The manager gets the same treatment plus one hole for the
 # API server it must talk to.
 #

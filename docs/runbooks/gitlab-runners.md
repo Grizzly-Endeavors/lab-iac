@@ -18,7 +18,8 @@ Architecture and the reasoning behind the isolation:
 | Metrics | NodePort 30894 → Prometheus job `gitlab-runner` |
 
 Job pods are `gitlab-runner-jobs`-only and hold no platform credentials. They
-cannot reach the foundation stores, OpenBao, zot, the BMCs, or the router.
+cannot reach anything on the LAN — the foundation stores, the secret store, zot,
+the BMCs, or the router.
 
 ## Bootstrap (one-time)
 

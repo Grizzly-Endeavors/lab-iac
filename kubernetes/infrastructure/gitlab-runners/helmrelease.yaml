@@ -1,0 +1,114 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gitlab-runner
+  namespace: flux-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: gitlab-runner
+      version: "0.91.0"
+      sourceRef:
+        kind: HelmRepository
+        name: gitlab
+  targetNamespace: gitlab-runners
+  install:
+    createNamespace: false
+  values:
+    gitlabUrl: https://gitlab.com/
+    # Long-lived manager process; one replica is correct. Concurrency comes
+    # from `concurrent` below, not from replicas.
+    replicas: 1
+    concurrent: 4
+    checkInterval: 3
+    logFormat: json
+    # Deregisters the runner from GitLab when the release is uninstalled, so a
+    # `flux suspend`/delete does not leave a phantom offline runner in the UI.
+    unregisterRunners: true
+
+    # RBAC and both ServiceAccounts are declared in rbac.yaml. The chart's own
+    # `rbac.create` would grant core-API `*`/`*`; ours is the scoped minimum.
+    rbac:
+      create: false
+    serviceAccount:
+      create: false
+      name: gitlab-runner
+
+    metrics:
+      enabled: true
+      # Scraped externally through the NodePort in metrics-service.yaml, not
+      # by an in-cluster prometheus-operator.
+      serviceMonitor:
+        enabled: false
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+      runAsNonRoot: true
+      privileged: false
+      capabilities:
+        drop: ["ALL"]
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+    runners:
+      # Reconciled from 1Password by ESO — see
+      # kubernetes/infrastructure/external-secrets-stores/gitlab-runners.yaml.
+      secret: gitlab-runner-token
+      # Job pods land in their own namespace, away from the token. See
+      # namespace.yaml for why the split matters.
+      jobNamespace: gitlab-runner-jobs
+      name: grizzly-homelab
+      # Ceiling on a single job, so a hung pipeline releases its concurrency
+      # slot rather than holding it until someone notices.
+      maximumTimeout: 3600
+      config: |
+        [[runners]]
+          [runners.kubernetes]
+            namespace = "gitlab-runner-jobs"
+            image = "debian:trixie-slim"
+            # The no-permission, no-token identity from rbac.yaml.
+            service_account = "gitlab-runner-job"
+            privileged = false
+            # `allow_privilege_escalation` is deliberately left unset rather
+            # than forced to false. Setting it false applies no_new_privs,
+            # which breaks the setuid newuidmap/newgidmap that rootless
+            # BuildKit needs to open its user namespace — the exact workload
+            # this pool exists to run. privileged = false is the boundary that
+            # carries the weight here; see ADR-071.
+            poll_timeout = 600
+            cpu_request = "1"
+            memory_request = "2Gi"
+            cpu_limit = "4"
+            memory_limit = "8Gi"
+            helper_cpu_request = "100m"
+            helper_memory_request = "128Mi"
+            helper_cpu_limit = "500m"
+            helper_memory_limit = "512Mi"
+            service_cpu_request = "200m"
+            service_memory_request = "256Mi"
+            service_cpu_limit = "1"
+            service_memory_limit = "1Gi"
+          # Job pods have no IPv6 egress (network-policy.yaml explains why).
+          # Skipping the AAAA lookup keeps glibc tooling from opening an IPv6
+          # connection that will be dropped and waiting out the timeout.
+          [runners.kubernetes.dns_config]
+          [[runners.kubernetes.dns_config.options]]
+            name = "no-aaaa"
+          # Rootless BuildKit needs unconfined seccomp and AppArmor to nest a
+          # user namespace — same posture ADR-057 accepted for the in-cluster
+          # image builds. It applies to every build container, not only the
+          # BuildKit ones; splitting hardened and build pools behind a job tag
+          # is the escalation path if that stops being acceptable (ADR-071).
+          [runners.kubernetes.build_container_security_context]
+            [runners.kubernetes.build_container_security_context.seccomp_profile]
+              type = "Unconfined"
+            [runners.kubernetes.build_container_security_context.app_armor_profile]
+              type = "Unconfined"

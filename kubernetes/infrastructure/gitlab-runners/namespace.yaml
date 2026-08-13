@@ -1,0 +1,20 @@
+# Two namespaces, deliberately split (ADR-071):
+#   gitlab-runners     — the runner manager Deployment. Holds the runner
+#                        authentication token and needs Kubernetes API access
+#                        to create job pods.
+#   gitlab-runner-jobs — where CI job pods land. Holds no credentials, has no
+#                        API access, and is the namespace the NetworkPolicy
+#                        confines to internet-only egress.
+#
+# The split is what makes the boundary meaningful: code from the GitLab group
+# executes only in gitlab-runner-jobs, which cannot read the token that would
+# let it impersonate the runner, and cannot reach the cluster API.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitlab-runners
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitlab-runner-jobs

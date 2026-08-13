@@ -1,0 +1,37 @@
+# The job namespace runs code the platform does not own, so it gets a hard
+# ceiling: a pipeline that forks a build loop or leaks pods can exhaust its own
+# quota and stall its own CI, but it cannot starve the cluster's real
+# workloads. Sized for 4 concurrent jobs at the per-container limits in
+# helmrelease.yaml, with headroom for `services:` sidecars.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: jobs-quota
+  namespace: gitlab-runner-jobs
+spec:
+  hard:
+    requests.cpu: "12"
+    requests.memory: 24Gi
+    limits.cpu: "32"
+    limits.memory: 64Gi
+    pods: "24"
+---
+# A quota that sets `requests.*`/`limits.*` makes those fields mandatory on
+# every container in the namespace. The executor stamps them onto the build,
+# helper, and service containers it creates, but a `services:` entry with an
+# unusual shape would otherwise be rejected at admission with an error that
+# surfaces as an opaque CI failure. These defaults keep that from happening.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: gitlab-runner-jobs
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "1"
+        memory: 2Gi
+      defaultRequest:
+        cpu: 250m
+        memory: 512Mi

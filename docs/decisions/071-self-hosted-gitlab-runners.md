@@ -31,6 +31,8 @@ The split is the boundary. Code from the GitLab group runs only in `gitlab-runne
 
 **No distributed cache.** GitLab CI caches need object storage the runner can reach, and the only candidate is versitygw on the LAN. Wiring it would mean punching a hole through the egress policy *and* handing bucket credentials to the helper container, where job code could read them. Artifacts still work — they go to GitLab over the internet — so the cost is falling back to per-job cold caches.
 
+The pool gets **its own Flux Kustomization** rather than joining the `infrastructure` one. That is not only blast-radius hygiene: the manager pod does not start until ESO has synced its runner token, and inside `infrastructure` that unready pod would hold `infrastructure` short of Ready — which gates the `external-secrets-stores` Kustomization that the `onepassword` ClusterSecretStore comes from, and eleven other Kustomizations besides. Placed there, a missing token would stall GitOps for the whole platform and could not resolve itself. The ExternalSecret therefore lives next to the workload, matching langfuse and metabase.
+
 **A `ResourceQuota` caps the job namespace** at 32 CPU / 64 Gi of limits and 24 pods. A pipeline that leaks pods exhausts its own quota and stalls its own CI without starving the platform's real workloads.
 
 ## Alternatives Considered

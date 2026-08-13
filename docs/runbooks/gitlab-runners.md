@@ -11,7 +11,7 @@ Architecture and the reasoning behind the isolation:
 |---|---|
 | Manager Deployment | `gitlab-runners` namespace, `gitlab-runner` HelmRelease (chart `0.91.0`, runner `19.2.0`) |
 | Job pods | `gitlab-runner-jobs` namespace, created and torn down per CI job |
-| Manifests | `kubernetes/infrastructure/gitlab-runners/` |
+| Manifests | `kubernetes/infrastructure/gitlab-runners/`, applied by its own Flux Kustomization `kubernetes/clusters/grizzly-platform/gitlab-runners.yaml` |
 | Runner auth token | 1Password `cicd-gitlab-runner/token` → ESO → `gitlab-runner-token` secret |
 | Network confinement | `network-policy.yaml` — DNS + IPv4 internet, no LAN, no IPv6 |
 | RBAC | `rbac.yaml` — executor minimum in the job namespace; job pods get nothing |
@@ -48,7 +48,7 @@ cannot reach the foundation stores, OpenBao, zot, the BMCs, or the router.
 3. **Let Flux reconcile**, then confirm the chain end to end:
 
    ```sh
-   flux reconcile kustomization infrastructure --with-source
+   flux reconcile kustomization gitlab-runners --with-source
    kubectl -n gitlab-runners get externalsecret gitlab-runner-token   # SecretSynced
    kubectl -n gitlab-runners rollout status deploy/gitlab-runner
    kubectl -n gitlab-runners logs deploy/gitlab-runner | grep -i "registered\|verify"
@@ -57,7 +57,9 @@ cannot reach the foundation stores, OpenBao, zot, the BMCs, or the router.
    The runner should show **online** in the GitLab group's Runners page.
 
    The HelmRelease will retry-fail until the 1Password item exists — that is
-   the expected state between steps 1 and 2, not a fault.
+   the expected state between steps 1 and 2, not a fault. It is contained to
+   this pool's own Flux Kustomization and does not hold back the rest of the
+   platform; see ADR-071 for why that separation is load-bearing.
 
 ## Using the runner from a project
 
@@ -183,7 +185,7 @@ BuildKit needs.
 The whole pool is Flux-managed and stateless apart from the token. To rebuild:
 
 ```sh
-flux reconcile kustomization infrastructure --with-source
+flux reconcile kustomization gitlab-runners --with-source
 ```
 
 If the release is wedged, delete it and let Flux reinstall — no state is lost,
@@ -191,7 +193,7 @@ and in-flight jobs fail and can be retried from the GitLab UI:
 
 ```sh
 kubectl -n flux-system delete helmrelease gitlab-runner
-flux reconcile kustomization infrastructure
+flux reconcile kustomization gitlab-runners
 ```
 
 Uninstalling deregisters the runner from GitLab (`unregisterRunners: true`), so

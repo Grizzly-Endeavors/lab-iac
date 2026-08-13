@@ -18,7 +18,6 @@ resources:
   - onepassword-store.yaml
   - registry.yaml
   - github-runners.yaml
-  - gitlab-runners.yaml
   - argo-workflows.yaml
   - notifications.yaml
   - flux-system.yaml

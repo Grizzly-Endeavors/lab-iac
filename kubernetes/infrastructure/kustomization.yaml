@@ -4,7 +4,6 @@ resources:
   - monitoring
   - notifications
   - github-runners
-  - gitlab-runners
   - argo-workflows
   - cert-manager
   - ingress-nginx

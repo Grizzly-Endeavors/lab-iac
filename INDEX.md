@@ -18,7 +18,7 @@ Centralized CI gate — versioned `grizzly-gate` image runs per-language checks 
 Self-hosted GitLab Runner pool for a GitLab SaaS group, using the Kubernetes executor. Split across two namespaces so job code runs without the runner token, without Kubernetes API access, and without LAN reach — internet-only egress, rootless BuildKit for image builds.
 - **Why:** [ADR-071](docs/decisions/071-self-hosted-gitlab-runners.md) (isolation posture, IPv6 denial, no distributed cache).
 - **How:** [runbooks/gitlab-runners.md](docs/runbooks/gitlab-runners.md) (create the runner, token chain, BuildKit recipe, failure modes).
-- **Code:** `kubernetes/infrastructure/gitlab-runners/`, token ExternalSecret in `kubernetes/infrastructure/external-secrets-stores/gitlab-runners.yaml`.
+- **Code:** `kubernetes/infrastructure/gitlab-runners/` + its own Flux Kustomization `kubernetes/clusters/grizzly-platform/gitlab-runners.yaml`.
 
 ### Secrets (OpenBao)
 OpenBao on the R730xd (LAN-only) is the platform secrets source of truth. K8s reads via External Secrets Operator; Ansible reads via AppRole. Infisical holds *only* the unseal keys (bootstrap).

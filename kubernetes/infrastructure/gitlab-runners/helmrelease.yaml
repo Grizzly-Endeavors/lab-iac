@@ -59,8 +59,7 @@ spec:
         memory: 1Gi
 
     runners:
-      # Reconciled from 1Password by ESO — see
-      # kubernetes/infrastructure/external-secrets-stores/gitlab-runners.yaml.
+      # Reconciled from 1Password by ESO — see externalsecret.yaml.
       secret: gitlab-runner-token
       # Job pods land in their own namespace, away from the token. See
       # namespace.yaml for why the split matters.

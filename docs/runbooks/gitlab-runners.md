@@ -179,6 +179,28 @@ deliberately cannot do. If it is a public host that only has an AAAA record,
 the pool cannot reach it at all — see ADR-071 for why IPv6 is refused rather
 than filtered.
 
+**Jobs fail with `runner_system_failure` / `setting up credentials: ... dial tcp
+10.96.0.1:443: i/o timeout`.** The manager can't reach the API server. Check
+whether its egress policy exists and is a `CiliumNetworkPolicy`, not a plain
+`NetworkPolicy` `ipBlock` rule:
+
+```sh
+kubectl -n gitlab-runners get ciliumnetworkpolicy manager-apiserver-egress
+```
+
+Cilium tags API-server traffic — via the ClusterIP or the control-plane
+address directly — with the reserved `kube-apiserver` identity, which
+`ipBlock`/CIDR rules never match. Confirm with Hubble if the policy looks
+right but traffic still times out:
+
+```sh
+kubectl -n kube-system exec ds/cilium -- hubble observe \
+  --pod gitlab-runners/gitlab-runner --verdict DROPPED --last 20
+```
+
+A `Policy denied DROPPED` line naming `(kube-apiserver)` as the destination
+confirms this. See ADR-071.
+
 **`docker: command not found` / `Cannot connect to the Docker daemon`.** There
 is no DinD sidecar. Port the job to the BuildKit recipe above.
 

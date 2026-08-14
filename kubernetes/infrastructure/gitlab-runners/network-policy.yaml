@@ -83,20 +83,6 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    # The one LAN exception: the API server the manager uses to create, watch,
-    # and exec into job pods. Both the ClusterIP and the control-plane node
-    # address are listed because Cilium evaluates egress policy after service
-    # translation. Single control plane per ADR-016; if it is ever rebuilt on
-    # another address the manager fails to register loudly rather than
-    # silently losing its boundary.
-    - to:
-        - ipBlock:
-            cidr: 10.96.0.1/32
-        - ipBlock:
-            cidr: 10.0.0.226/32
-      ports:
-        - port: 6443
-          protocol: TCP
     # Outbound to GitLab. The manager holds the runner authentication token,
     # so it is confined to the same internet-only egress as the job pods.
     - to:
@@ -108,3 +94,25 @@ spec:
               - 192.168.0.0/16
               - 169.254.0.0/16
               - 127.0.0.0/8
+---
+# The one LAN exception: the API server the manager uses to create, watch,
+# and exec into job pods. This can't be a plain NetworkPolicy ipBlock rule —
+# under Cilium's kube-proxy replacement, traffic to the apiserver (whether
+# dialed via the in-cluster Service ClusterIP or the control-plane node
+# address directly) is tagged with the reserved `kube-apiserver` identity,
+# and ipBlock/CIDR rules never match reserved identities, only arbitrary
+# world CIDRs. `toEntities: kube-apiserver` is the construct that does.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: manager-apiserver-egress
+  namespace: gitlab-runners
+spec:
+  endpointSelector: {}
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP

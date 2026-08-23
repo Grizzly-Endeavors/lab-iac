@@ -59,8 +59,7 @@ spec:
       service:
         enabled: true
     # The operator runs under a dedicated SA (default "external-secrets"
-    # in the chart). Its K8s auth role in OpenBao is bound to that SA
-    # + namespace.
+    # in the chart).
     serviceAccount:
       create: true
       name: external-secrets

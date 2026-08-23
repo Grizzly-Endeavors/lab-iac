@@ -70,21 +70,6 @@ trusted_wifi_psk: "{{ vault_trusted_wifi_psk }}"
 wg_vps_public_key: "{{ vault_wg_vps_public_key }}"
 wg_r730xd_public_key: "{{ vault_wg_r730xd_public_key }}"
 
-# OpenBao (R730xd) — Infisical universal-auth credentials for the
-# bootstrap machine identity. Surface encrypted values as the plain
-# variables the r730xd-openbao role expects.
-# See docs/decisions/023-self-hosted-openbao-on-r730xd.md
-infisical_openbao_client_id: "{{ vault_infisical_openbao_client_id }}"
-infisical_openbao_client_secret: "{{ vault_infisical_openbao_client_secret }}"
-
-# OpenBao Infisical project ID — pulled from .infisical.json at the repo
-# root so there's one source of truth for the workspace identifier.
-# Safe to commit: the client_id/secret pair is what grants access, not
-# the project ID. $PWD is the CWD ansible was launched from, which is
-# always the repo root per README / ansible.cfg conventions.
-openbao_infisical_project_id: >-
-  {{ (lookup('file', lookup('env', 'PWD') ~ '/.infisical.json') | from_json).workspaceId }}
-
 # -----------------------------------------------------------------------
 # Platform secrets via 1Password
 # -----------------------------------------------------------------------
@@ -107,23 +92,3 @@ onepassword_vault: "grizzly-platform"
 # token is re-minted, and re-run setup-1password-eso.yml.
 onepassword_tokens_minted: "2026-08-01"
 
-# OpenBao API endpoint — LAN-only, served on r730xd. Surfaced here (not just
-# in the role defaults) because plays that don't apply the r730xd-openbao role
-# still need to reach the API. Port from the role defaults.
-openbao_api_port: 8200
-openbao_api_addr: "https://{{ r730xd_ip }}:{{ openbao_api_port }}"
-
-# OpenBao CA bundle on the controller. The r730xd-openbao role installs
-# the CA into the host trust store during deploy-openbao.yml; for the
-# jumpbox/bear-desktop controller, fetch it via:
-#   scripts/fetch-openbao-ca.sh
-# Override via `-e openbao_tls_ca_path=/alt/path/ca.crt`.
-openbao_tls_ca_path: "/usr/local/share/ca-certificates/grizzly-platform-openbao-ca.crt"
-
-# OpenBao Agent that mints the Prometheus sys/metrics scrape token (issue #41).
-# Shared here (not just in the r730xd-openbao-agent role defaults) because the
-# r730xd-prometheus role bind-mounts the sink dir to read the token. The sink
-# token is short-TTL and read-only on sys/metrics, so a host-local 0644 file is
-# acceptable; the secret_id that authenticates the agent is CIDR-bound + 0600.
-openbao_agent_base_dir: "/opt/observability/openbao-agent"
-openbao_agent_sink_dir: "{{ openbao_agent_base_dir }}/sink"

@@ -64,7 +64,6 @@ residuum_ollama_url: "https://ollama.com"
 # Versions are matched to the PLATFORM, not blindly latest:
 #   kubectl -> in ±1 skew with the cluster API server (v1.33.x)
 #   flux    -> matches the deployed source-controller (v1.8.2 / flux2 v2.8.x)
-#   bao     -> matches the OpenBao server (v2.5.2)
 # Re-verify (and refresh checksums) before bumping any of these.
 residuum_tool_gh_version: "2.96.0"
 residuum_tool_gh_sha256: "83d5c2ccad5498f58bf6368acb1ab32588cf43ab3a4b1c301bf36328b1c8bd60"
@@ -74,9 +73,6 @@ residuum_tool_kubectl_sha256: "316d712726d857c20744c57cb36aa47cfc79bc0af7e82cebf
 
 residuum_tool_flux_version: "2.8.5"
 residuum_tool_flux_sha256: "63c178ba938a5443265b2ce02691c005acf4ef6188d4dbb9b9d87333558948c4"
-
-residuum_tool_bao_version: "2.5.2"
-residuum_tool_bao_sha256: "26556656a851adc7f139d1c3778bc39cb24bc846bd685ee8b2d8b4661518b085"
 
 residuum_tool_uv_version: "0.11.30"
 residuum_tool_uv_sha256: "04bc7d180d6138bf6dc08387acf507a823f397a98fea55da36b0ccc7fbce3b68"
@@ -94,20 +90,15 @@ residuum_tool_archives:
     url: "https://github.com/fluxcd/flux2/releases/download/v{{ residuum_tool_flux_version }}/flux_{{ residuum_tool_flux_version }}_linux_amd64.tar.gz"
     sha256: "{{ residuum_tool_flux_sha256 }}"
     bin_path: "flux"
-  - name: bao
-    version: "{{ residuum_tool_bao_version }}"
-    url: "https://github.com/openbao/openbao/releases/download/v{{ residuum_tool_bao_version }}/bao_{{ residuum_tool_bao_version }}_Linux_x86_64.tar.gz"
-    sha256: "{{ residuum_tool_bao_sha256 }}"
-    bin_path: "bao"
   - name: uv
     version: "{{ residuum_tool_uv_version }}"
     url: "https://github.com/astral-sh/uv/releases/download/{{ residuum_tool_uv_version }}/uv-x86_64-unknown-linux-gnu.tar.gz"
     sha256: "{{ residuum_tool_uv_sha256 }}"
     bin_path: "uv-x86_64-unknown-linux-gnu/uv"
 
-# Secrets — sourced from OpenBao at play time via ansible/vars/openbao_secrets.yml
-# (secret/grizzly-platform/platform/residuum). Listed here only as documentation;
-# the role never hardcodes them:
+# Secrets — sourced from 1Password at play time via
+# ansible/vars/onepassword_secrets.yml (item platform-residuum). Listed here
+# only as documentation; the role never hardcodes them:
 #   residuum_ollama_api_key: "{{ vault_residuum_ollama_api_key }}"
 #   residuum_gemini_api_key: "{{ vault_residuum_gemini_api_key }}"
 #   residuum_cloud_token:    "{{ vault_residuum_cloud_token }}"

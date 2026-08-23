@@ -2,7 +2,7 @@
 # Kustomization (like roundcube/stalwart) so a transiently-unhealthy pod never
 # blocks core infrastructure from reaching Ready. No external-secrets-stores
 # dependency: ntfy owns its auth DB on its PVC, and consumer publish tokens are
-# minted post-deploy (see docs/runbooks/ntfy.md) and stored in OpenBao for the
+# minted post-deploy (see docs/runbooks/ntfy.md) and stored in 1Password for the
 # apps that publish. dependsOn infrastructure so the iscsi-zfs StorageClass and
 # ingress-nginx exist before this applies.
 apiVersion: kustomize.toolkit.fluxcd.io/v1

@@ -8,11 +8,11 @@ metadata:
 #
 # The client_id/client_secret are NOT in git: they are injected into the worker
 # (which applies blueprints) via global.env as AUTHENTIK_NEXTCLOUD_CLIENT_ID /
-# AUTHENTIK_NEXTCLOUD_CLIENT_SECRET, sourced from OpenBao
-# secret/grizzly-platform/platform/authentik (oidc_nextcloud_client_id,
-# oidc_nextcloud_client_secret) by the authentik ExternalSecret. The same two
-# OpenBao keys feed Nextcloud's own ExternalSecret in lab-apps, so both sides of
-# the OIDC contract share one source of truth.
+# AUTHENTIK_NEXTCLOUD_CLIENT_SECRET, sourced from the 1Password item
+# platform-authentik (oidc_nextcloud_client_id, oidc_nextcloud_client_secret)
+# by the authentik ExternalSecret. The same two fields feed Nextcloud's own
+# ExternalSecret in lab-apps, so both sides of the OIDC contract share one
+# source of truth.
 entries:
   # Groups scope mapping — emits a `groups` claim (list of the user's Authentik
   # group names) so user_oidc can mirror Authentik groups into Nextcloud.

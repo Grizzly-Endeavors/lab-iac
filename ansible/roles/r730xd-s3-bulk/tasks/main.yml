@@ -13,19 +13,9 @@
   loop:
     - { path: "{{ s3_bulk_data_dir }}", mode: "0755" }
     - { path: "{{ s3_bulk_versions_dir }}", mode: "0755" }
+    - { path: "{{ s3_bulk_iam_dir }}", mode: "0700" }
     - { path: "{{ s3_bulk_compose_dir }}", mode: "0750" }
     - { path: "{{ s3_bulk_config_dir }}", mode: "0750" }
-
-# versitygw's Vault-IAM TLS wants the OpenBao CA as PEM *content* (not a path).
-# Read it off the host CA bundle and inline it into the compose environment.
-- name: Read OpenBao CA certificate (PEM content for Vault-IAM TLS)
-  ansible.builtin.slurp:
-    src: "{{ s3_bulk_iam_vault_ca_path }}"
-  register: s3_bulk_ca_slurp
-
-- name: Set OpenBao CA PEM fact
-  ansible.builtin.set_fact:
-    s3_bulk_ca_pem: "{{ s3_bulk_ca_slurp.content | b64decode }}"
 
 - name: Deploy s3-bulk statsd-exporter mapping
   ansible.builtin.template:
@@ -86,11 +76,10 @@
     delay: 3
     timeout: 60
 
-# A 200 here proves the gateway started cleanly, which means BOTH the OpenBao
-# Vault-IAM AppRole auth and the startup xattr-support validation passed —
-# versitygw refuses to start if either fails. (xattr passthrough on
+# A 200 here proves the gateway started cleanly, which means the startup
+# xattr-support validation passed — versitygw refuses to start without it. (xattr passthrough on
 # MergerFS→ext4 is the property this tier most needs to confirm.)
-- name: Verify s3-bulk health (proves Vault-IAM auth + xattr validation passed)
+- name: Verify s3-bulk health (proves xattr validation passed)
   ansible.builtin.uri:
     url: "http://localhost:{{ s3_bulk_s3_port }}/health"
     status_code: 200
@@ -109,5 +98,5 @@
       - "Data:     {{ s3_bulk_data_dir }}"
       - "Versions: {{ s3_bulk_versions_dir }}"
       - "Backing:  MergerFS+SnapRAID (/mnt/pool)"
-      - "IAM:      OpenBao Vault mode — mount {{ s3_bulk_iam_vault_mount_path }}, storage-path {{ s3_bulk_iam_vault_storage_path }}"
+      - "IAM:      internal file store — {{ s3_bulk_iam_dir }}"
       - "Unit:     {{ s3_bulk_server_unit_name }}"

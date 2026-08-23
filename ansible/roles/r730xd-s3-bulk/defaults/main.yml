@@ -4,9 +4,9 @@
 # Stateless S3 gateway storing objects as plain POSIX files on the MergerFS
 # pool (/mnt/pool), one immutable file per object/version — the property that
 # lets SnapRAID protect it.
-# Durability rides on SnapRAID; IAM accounts live in OpenBao (Vault IAM mode,
-# set up by setup-versitygw-iam.yml). Config is 100% flags/env (versitygw
-# holds no config state) — see docs/runbooks/versitygw-cli.md.
+# Durability rides on SnapRAID; IAM accounts live in versitygw's own file
+# store on ZFS (ADR-072). Config is 100% flags/env (versitygw holds no config
+# state) — see docs/runbooks/versitygw-cli.md.
 #
 # S3 API:  http://<r730xd_ip>:7072
 # Metrics: http://<r730xd_ip>:9103/metrics  (statsd-exporter sidecar;
@@ -37,16 +37,13 @@ s3_bulk_server_unit_name: "foundation-s3-bulk.service"
 # S3 region string
 s3_bulk_region: "us-east-1"
 
-# OpenBao Vault-IAM backend (mount + approle from setup-versitygw-iam.yml)
-s3_bulk_iam_vault_endpoint: "{{ openbao_api_addr }}"
-s3_bulk_iam_vault_mount_path: "versitygw-iam"
-s3_bulk_iam_vault_storage_path: "s3-bulk"   # per-instance account namespace under the shared mount
-s3_bulk_iam_vault_ca_path: "{{ openbao_tls_ca_path | default('/etc/openbao/tls/ca.crt') }}"
+# Internal file IAM (ADR-072) — versitygw owns this directory and keeps its
+# S3 account records in it. Backed by ZFS on both tiers so the account store
+# has real-time redundancy and rides the pool snapshots.
+s3_bulk_iam_dir: "/mnt/zfs/foundation/versitygw-iam/s3-bulk"
 
-# Root credentials + shared IAM AppRole creds — sourced from OpenBao via
+# Root credentials — sourced from 1Password via
 # group_vars/all/vars.yml (inherited at play time; commented here so the
 # role file itself never hardcodes secrets):
 #   s3_bulk_root_access_key:    "{{ vault_s3_bulk_root_access_key }}"
 #   s3_bulk_root_secret_key:    "{{ vault_s3_bulk_root_secret_key }}"
-#   versitygw_iam_role_id:      "{{ vault_versitygw_iam_role_id }}"
-#   versitygw_iam_role_secret:  "{{ vault_versitygw_iam_secret_id }}"

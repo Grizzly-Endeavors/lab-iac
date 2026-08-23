@@ -21,15 +21,13 @@ clickhouse_password: "{{ vault_clickhouse_password }}"
 # out of scope there and the threshold would silently evaluate against nothing.
 clickhouse_max_server_memory_bytes: 8589934592  # 8 GiB
 
-# versitygw stores (ADR-055). Root creds per gateway
-# + the shared OpenBao AppRole the gateways use for their Vault-IAM account
-# store. Provisioned into OpenBao by setup-versitygw-iam.yml.
+# versitygw stores (ADR-055). Root creds per gateway — the bootstrap admin
+# each gateway boots with. All other S3 accounts live in the gateway's own
+# file IAM store (ADR-072) and are managed through its admin API.
 s3_hot_root_access_key: "{{ vault_s3_hot_root_access_key }}"
 s3_hot_root_secret_key: "{{ vault_s3_hot_root_secret_key }}"
 s3_bulk_root_access_key: "{{ vault_s3_bulk_root_access_key }}"
 s3_bulk_root_secret_key: "{{ vault_s3_bulk_root_secret_key }}"
-versitygw_iam_role_id: "{{ vault_versitygw_iam_role_id }}"
-versitygw_iam_role_secret: "{{ vault_versitygw_iam_secret_id }}"
 
 # Observability stack (R730xd)
 grafana_admin_password: "{{ vault_grafana_admin_password }}"

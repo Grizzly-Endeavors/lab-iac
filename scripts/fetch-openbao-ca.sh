@@ -81,8 +81,18 @@ if [[ -w "$(dirname "${CA_TRUST_DEST}")" ]] 2>/dev/null || sudo -n true 2>/dev/n
         sudo cp "${TMP_CA}" "${CA_TRUST_DEST}"
         sudo rm -f "${CA_TRUST_LEGACY}"
     fi
-    if command -v update-ca-certificates >/dev/null; then
-        sudo update-ca-certificates >/dev/null
+    # Copying the PEM is only half the install -- the trust store is not
+    # consulted until update-ca-certificates rebuilds the bundle. Do not guard
+    # this on `command -v`: update-ca-certificates lives in /usr/sbin, which is
+    # not on a non-root user's PATH, so the check silently fails and leaves the
+    # CA inert. That surfaces much later as an "unknown authority" TLS error
+    # against OpenBao, a long way from the cause.
+    if [[ "${EUID}" -eq 0 ]]; then
+        update-ca-certificates >/dev/null \
+            || die "update-ca-certificates failed -- CA copied but not active"
+    else
+        sudo update-ca-certificates >/dev/null \
+            || die "update-ca-certificates failed -- CA copied but not active"
     fi
 else
     log "skipped trust-store install (no sudo); copy manually:"

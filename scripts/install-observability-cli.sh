@@ -153,6 +153,25 @@ configure_fish() {
 }
 
 # =============================================================================
+# amtool configuration
+# =============================================================================
+
+# amtool does NOT read ALERTMANAGER_URL -- it takes --alertmanager.url or reads
+# this config file. Without it, a bare `amtool alert query` fails with
+# "required flag --alertmanager.url not provided" even though the environment
+# variable is set, which reads as a broken install rather than a missing flag.
+configure_amtool() {
+    info "Configuring amtool..."
+
+    local cfg_dir="${HOME}/.config/amtool"
+    local cfg="${cfg_dir}/config.yml"
+
+    mkdir -p "${cfg_dir}"
+    printf 'alertmanager.url: %s\n' "${ALERTMANAGER_ADDR}" > "${cfg}"
+    ok "${cfg} -> ${ALERTMANAGER_ADDR}"
+}
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -167,6 +186,7 @@ install_logcli
 install_promtool
 install_amtool
 configure_fish
+configure_amtool
 
 echo ""
 info "Done! Quick start:"

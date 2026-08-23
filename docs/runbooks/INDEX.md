@@ -29,10 +29,6 @@ One line per runbook. See [`README.md`](README.md) for what runbooks are and whe
 
 - [ci-gate.md](ci-gate.md) — bootstrap, Audit→Enforce rollout, key rotation, gate version bump, deploy-denied diagnosis.
 
-## GitLab CI
-
-- [gitlab-runners.md](gitlab-runners.md) — self-hosted GitLab runners: creating the runner, the token chain, BuildKit builds, and the egress-confinement failure modes.
-
 ## Identity / invites
 
 - [invite-authentik-reader.md](invite-authentik-reader.md) — the Authentik read-only group reader backing the invite console.

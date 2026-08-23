@@ -147,6 +147,10 @@ Secrets stay in 1Password; the job reads a LiteLLM master key, a Langfuse bootst
 - **Two adapters, one codebase:** enterprise (SCIM does membership; Langfuse Instance Management API; project-level RBAC → one org, scoped projects) and OSS (reconciler does membership; Langfuse tRPC; org-per-team). The OSS build is the home test bed for the enterprise one.
 - **Door policy:** the per-app admin UIs stay reachable as break-glass for platform admins only; everyone else goes through the control plane, or drift becomes normal.
 
+## Prototype
+
+A working control-plane prototype lives in `~/Projects/playground/inference-console/` (Rust: axum + askama + sqlx, from the `rust-toolkit` template): Teams, Model catalog with first-class access groups, Assistants (per-team `modelSpecs`), forward-auth identity with admin gating, an approvals inbox for non-admin edits, offboarding (member pruning + full team teardown), drift detection/repair, audit log, and sync runs — all verified against a sandboxed LiteLLM + Langfuse OSS + LibreChat + Keycloak stack. Notable API traps it uncovered: LiteLLM `POST /model/update` silently drops `model_info` (use `PATCH /model/{id}/update`); team callbacks are add-only (clear via `/team/{id}/disable_logging`, keys unreadable once stored); team-admin `member_add` is enterprise-gated; LibreChat rate-limits password logins (cache the bot JWT); Langfuse orgs refuse deletion for ~60s after their last project is deleted; a LibreChat role override's `modelSpecs.list` replaces the base list (only `endpoints.custom` merges).
+
 ## Decision needed before building
 
 Whether to stay OSS with the tRPC dependency and org-per-team, or buy Langfuse EE for the supported API + project RBAC + SCIM. Everything else is settled by the tests above. If OSS: write the sync job first, since it is the piece that turns three admin panels into one file.

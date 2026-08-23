@@ -16,11 +16,11 @@ One foundation Postgres 16 instance on the R730xd backs every app's relational s
 ## Prerequisites
 
 - Foundation Postgres running (`deploy-foundation-stores.yml`).
-- A password seeded in OpenBao at `secret/grizzly-platform/stores/<app>` under key `db_password`. Generate it **without single quotes** (`openssl rand -base64 36`) — the provisioning play passes it through psql's `:'pw'` literal and a `'` breaks the quoting. (Secrets pattern: [secrets.md](secrets.md).)
+- A password in the 1Password item `stores-<app>` under field `db_password`. Generate it **without single quotes** (`openssl rand -base64 36`) — the provisioning play passes it through psql's `:'pw'` literal and a `'` breaks the quoting. (Secrets pattern: [secrets.md](secrets.md).)
 
 ## 1 — Provision the role + database
 
-Provisioning is a small Ansible play per app, modeled on `setup-career-scanner-stores.yml`. Copy that play's DB block for a new app — it is idempotent and does exactly three things: create the login role (if absent), keep its password in sync with OpenBao, and create the database `OWNER`ed by that role. The core of it:
+Provisioning is a small Ansible play per app, modeled on `setup-career-scanner-stores.yml`. Copy that play's DB block for a new app — it is idempotent and does exactly three things: create the login role (if absent), keep its password in sync with 1Password, and create the database `OWNER`ed by that role. The core of it:
 
 ```yaml
 # psql -U postgres connects over the container's local socket (trust auth) —
@@ -90,7 +90,7 @@ psql "postgresql://<app>:$DB_PASSWORD@10.0.0.200:5432/<app>" -c '\conninfo'
 
 ## Troubleshoot
 
-- **`password authentication failed`** — the role password in Postgres drifted from OpenBao. Re-run the play with `--tags db`; the "keep password in sync" task runs unconditionally and `ALTER ROLE ... PASSWORD`s it back to the OpenBao value.
+- **`password authentication failed`** — the role password in Postgres drifted from 1Password. Re-run the play with `--tags db`; the "keep password in sync" task runs unconditionally and `ALTER ROLE ... PASSWORD`s it back to the 1Password value.
 - **`permission denied for schema public` on migrations** — you're connecting as a role that doesn't own the DB. Confirm the DB was created `OWNER <app>` and the app connects as `<app>`, not `postgres`.
 - **`too many clients already`** — aggregate connections hit `max_connections = 100`. Shrink your pool; this is a shared instance.
 - **Can't reach `10.0.0.200:5432` from a pod** — foundation Postgres binds the host LAN interface (host-network container); the cluster reaches it over the flat L2, not through a K8s Service. Check the pod actually has LAN egress and the container is up (`docker ps` on r730xd).

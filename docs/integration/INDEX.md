@@ -11,7 +11,7 @@ One line per guide. See [`README.md`](README.md) for what an integration guide i
 
 ## Cross-cutting platform services
 
-- [secrets.md](secrets.md) — land credentials in your namespace from OpenBao via External Secrets (K8s) or AppRole (Ansible). **Read this first — every store guide builds on it.**
+- [secrets.md](secrets.md) — land credentials in your namespace from 1Password via External Secrets (K8s) or `op` lookups (Ansible). **Read this first — every store guide builds on it.**
 - [sso.md](sso.md) — put your app behind Authentik (OIDC for apps that speak it, forward-auth proxy for those that don't) and onboard people via the invite broker.
 - [mail.md](mail.md) — send transactional email through Stalwart: get a submission credential and keep your from-address DMARC-aligned.
 - [observability.md](observability.md) — emit logs (free), metrics, and traces; where each signal goes and how to see it in Grafana.

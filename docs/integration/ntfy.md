@@ -19,19 +19,19 @@ A **topic** on `https://ntfy.grizzly-endeavors.com`. Publish an HTTP request to 
 
 ## 4. Provision — a scoped token
 
-The server is **`deny-all`**: nothing publishes or subscribes without a token, and each token is granted only the topics it needs. Mint one (operator step, full detail in the [runbook](../runbooks/ntfy.md)) and stash it in OpenBao — never commit it:
+The server is **`deny-all`**: nothing publishes or subscribes without a token, and each token is granted only the topics it needs. Mint one (operator step, full detail in the [runbook](../runbooks/ntfy.md)) and stash it in 1Password — never commit it:
 
 ```fish
 set POD (kubectl -n ntfy get pod -l app.kubernetes.io/name=ntfy -o name)
 kubectl -n ntfy exec $POD -- ntfy user add myapp            # a publisher identity
 kubectl -n ntfy exec $POD -- ntfy access myapp 'myapp-alerts' rw   # grant just your topic(s)
 kubectl -n ntfy exec $POD -- ntfy token add myapp           # prints tk_... — copy it
-bao kv put secret/grizzly-platform/platform/ntfy myapp_token=tk_xxxxxxxx
+op item edit platform-ntfy --vault grizzly-platform myapp_token=tk_xxxxxxxx
 ```
 
 ## 5. Wire it up
 
-**Land the token in your namespace** ([secrets.md](secrets.md) pattern — `ClusterSecretStore` `openbao`):
+**Land the token in your namespace** ([secrets.md](secrets.md) pattern — `ClusterSecretStore` `onepassword`):
 
 ```yaml
 apiVersion: external-secrets.io/v1
@@ -40,17 +40,16 @@ metadata:
   name: ntfy-token
   namespace: myapp
 spec:
-  refreshInterval: 1h
+  refreshPolicy: OnChange
   secretStoreRef:
     kind: ClusterSecretStore
-    name: openbao
+    name: onepassword
   target:
     name: ntfy-token
   data:
     - secretKey: token
       remoteRef:
-        key: grizzly-platform/platform/ntfy
-        property: myapp_token
+        key: platform-ntfy/myapp_token
 ```
 
 **Publish** — it's plain HTTP with a bearer token. Structured messages are cleanest as JSON to `/`:
@@ -120,6 +119,6 @@ The subscriber should see "it works" within a second.
 ## 8. See also
 
 - [runbooks/ntfy.md](../runbooks/ntfy.md) — operating ntfy: minting users/tokens, granting topics, health, backup.
-- [secrets.md](secrets.md) — the OpenBao → External Secrets pattern every example here uses.
+- [secrets.md](secrets.md) — the 1Password → External Secrets pattern every example here uses.
 - [ADR-061](../decisions/061-ntfy-notification-service.md) — why ntfy is a shared platform service.
 - Upstream: [ntfy publish docs](https://docs.ntfy.sh/publish/) — the full header/JSON reference.

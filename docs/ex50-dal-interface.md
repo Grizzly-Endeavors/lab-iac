@@ -37,7 +37,7 @@ The DAL **Admin CLI** is the same over SSH and serial. Three usable modes, all o
 - **`show config`** prints only the **delta from factory defaults**, as replayable `add`/`set`/`del` commands (this unit's delta is ~20 lines). This is the minimal, version-controllable representation — the thing an Ansible role renders and pushes.
 - **`config` → `show <path>`** prints the *full* subtree including every default — schema introspection, not for storage.
 - Round-trip: capture `show config` → template it → apply via piped stdin (mode 2) → `save`. Full-image backup/restore exists separately (`system` domain) but the delta-replay path is the IaC one.
-- **Secrets note:** `show config` embeds obfuscated secrets (e.g. WiFi PSK as `$ob1$…`, reversible). This repo is public — any committed config sample must be redacted; render real values through OpenBao/ESO at apply time, never commit them.
+- **Secrets note:** `show config` embeds obfuscated secrets (e.g. WiFi PSK as `$ob1$…`, reversible). This repo is public — any committed config sample must be redacted; render real values through 1Password/ESO at apply time, never commit them.
 
 ---
 

@@ -1,5 +1,0 @@
----
-- name: Restart openbao-agent
-  ansible.builtin.command: docker compose up -d --force-recreate
-  args:
-    chdir: "{{ openbao_agent_compose_dir }}"

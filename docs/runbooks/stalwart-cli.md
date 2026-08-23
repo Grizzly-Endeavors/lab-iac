@@ -6,11 +6,11 @@ How to drive the Stalwart 0.16 mail server's config from the control node with t
 
 ## Invocation
 
-The CLI runs as a container and authenticates as the deterministic recovery admin (OpenBao `platform/stalwart` `admin_password`). From the control node:
+The CLI runs as a container and authenticates as the deterministic recovery admin (1Password item `platform-stalwart`, field `admin_password`). From the control node:
 
 ```
-export BAO_ADDR="https://10.0.0.200:8200"; export BAO_CACERT="$HOME/.config/openbao/ca.crt"
-ADMIN_PW=$(bao kv get -format=json secret/grizzly-platform/platform/stalwart | jq -r .data.data.admin_password)
+export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/op-tokens/operator)"
+ADMIN_PW=$(op read op://grizzly-platform/platform-stalwart/admin_password)
 
 stw(){ docker run --rm \
   -e STALWART_URL=https://mail.grizzly-endeavors.com -e STALWART_USER=admin -e STALWART_PASSWORD="$ADMIN_PW" \
@@ -49,7 +49,7 @@ Notes:
 - **Typed secret / value objects.** Secret and text fields take a tagged object, NOT a bare string, and Stalwart 0.16 does **not** expand `%{env:}%` macros anywhere:
   - `{"@type":"EnvironmentVariable","variableName":"S3_SECRET_KEY"}` — read from pod env (used for blob-store `secretKey`, data-store `authSecret`; the Part-C SMTP2GO relay password will use this).
   - `{"@type":"File","filePath":"/etc/stalwart/tls/tls.key"}` — read from a mounted file (TLS cert/key).
-  - `{"@type":"Value","secret":"..."}` / `{"@type":"Password","secret":"..."}` — literal (mailbox password, injected from OpenBao by the playbook — never committed).
+  - `{"@type":"Value","secret":"..."}` / `{"@type":"Password","secret":"..."}` — literal (mailbox password, injected from 1Password by the playbook — never committed).
 - **`@type` values are PascalCase** (`PostgreSql`, `S3`, `Password`). A store's endpoint region is `{"@type":"Custom","customEndpoint":"...","customRegion":"us-east-1"}`.
 - **In-plan `#ref` resolution is unreliable for `id<...>` fields.** For cross-object references (e.g. `SystemSettings.defaultCertificateId`) the playbook queries the live id and sets it in a follow-up `update`, rather than referencing it inside the plan. Do the same.
 
@@ -68,7 +68,7 @@ stw query Account --where name=bearflinn --json           # find id
 stw get   Account b --json                                # full object
 stw update Account b --field 'aliases/0={"name":"postmaster","domainId":"b"}' \
                      --field 'aliases/1={"name":"abuse","domainId":"b"}'
-# set/rotate a password credential (prefer the playbook, which injects from OpenBao):
+# set/rotate a password credential (prefer the playbook, which injects from 1Password):
 stw update Account b --field 'credentials/0={"@type":"Password","secret":"<pw>"}'
 ```
 `EmailAlias = {name: <local-part>, domainId}` — `name` is the **local part only** (a full `x@y` is rejected as "Invalid email local part"; `domainId` is required).

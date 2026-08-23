@@ -21,13 +21,9 @@ vault_idrac_password: "your-idrac-password-here"
 vault_postgres_password: "your-postgres-superuser-password-here"
 vault_kv_cache_password: "your-kv-cache-password-here"
 
-# versitygw stores (ADR-055) — NOT set here. The s3-hot/s3-bulk root creds and
-# the versitygw Vault-IAM AppRole (role_id/secret_id) are generated and stored
-# directly in OpenBao by setup-versitygw-iam.yml (source of truth), then read
-# back via ansible/vars/openbao_secrets.yml as:
-#   vault_s3_hot_root_access_key / vault_s3_hot_root_secret_key
-#   vault_s3_bulk_root_access_key / vault_s3_bulk_root_secret_key
-#   vault_versitygw_iam_role_id / vault_versitygw_iam_secret_id
+# versitygw stores (ADR-055) — NOT set here. The s3-hot/s3-bulk root creds
+# live in 1Password and are read back via ansible/vars/onepassword_secrets.yml
+# as vault_s3_{hot,bulk}_root_access_key / vault_s3_{hot,bulk}_root_secret_key.
 
 # Observability stack (R730xd)
 vault_grafana_admin_password: "your-grafana-admin-password-here"
@@ -42,10 +38,18 @@ vault_obs_s3_secret_key: "your-obs-s3-secret-key-here"
 vault_home_wifi_psk: "your-home-wifi-psk-here"
 vault_trusted_wifi_psk: "your-trusted-wifi-psk-here"
 
-# OpenBao bootstrap — Infisical universal-auth machine identity credentials.
-# These are the ONLY secrets the IaC layer needs once OpenBao is live; they
-# grant read access to the Infisical project that holds the OpenBao unseal
-# keys + root token. See docs/decisions/023-self-hosted-openbao-on-r730xd.md
-# and docs/runbooks/openbao-disaster-recovery.md for rotation + recovery.
-vault_infisical_openbao_client_id: "your-infisical-universal-auth-client-id"
-vault_infisical_openbao_client_secret: "your-infisical-universal-auth-client-secret"
+
+# 1Password service account tokens — the platform's secret path. Every
+# platform secret lives in the `grizzly-platform` 1Password vault and is
+# reached with one of these. `ansible-reader` backs the lookups in
+# ansible/vars/onepassword_secrets.yml; `eso-reader` is written into the
+# cluster by setup-1password-eso.yml for External Secrets; `operator` is the
+# only one holding write_items, used for adding and rotating secrets by hand.
+#
+# These are the ONLY secrets the IaC layer needs. .vault_pass gates them, and
+# a service account token cannot be read back out of 1Password once minted —
+# so if .vault_pass is lost, every token must be re-minted by hand. See
+# docs/runbooks/onepassword-quickref.md for minting and rotation.
+vault_op_service_account_token: "ops_your-ansible-reader-token"
+vault_op_eso_service_account_token: "ops_your-eso-reader-token"
+vault_op_operator_service_account_token: "ops_your-operator-token"

@@ -9,8 +9,11 @@ Description=versitygw S3 gateway — hot tier (Docker Compose)
 Requires=docker.service
 After=docker.service network-online.target zfs-mount.service
 Wants=network-online.target
-# Data lives on ZFS; refuse to start if the mount is missing.
-RequiresMountsFor={{ s3_hot_data_dir }}
+# Data and the IAM account store both live on ZFS (separate datasets, so
+# separate mounts). Refuse to start if either is missing — a gateway started
+# onto an unmounted IAM dir comes up with an empty account store and locks
+# out every non-root S3 consumer.
+RequiresMountsFor={{ s3_hot_data_dir }} {{ s3_hot_iam_dir }}
 
 [Service]
 Type=oneshot

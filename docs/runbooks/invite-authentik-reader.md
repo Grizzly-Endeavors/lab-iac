@@ -2,18 +2,18 @@
 
 The grizzly-invite provisioning console pulls its mint-form group chips **live from Authentik** instead of a hand-maintained list (chips = all groups minus `is_superuser` minus the denylist). To do that the broker calls `GET /api/v3/core/groups/` with a dedicated, least-privilege Authentik service account whose only power is listing groups.
 
-Per [ADR-039](../decisions/039-authentik-social-federation-invitation-enrollment.md), identities and access grants live **inside Authentik, never in git** — so this reader (like admin promotion) is a documented bootstrap step, not a blueprint. Only the resulting API token is a secret, and it lives in OpenBao (`secret/grizzly-platform/platform/invite` → `authentik_api_token`), synced into the pod by External Secrets.
+Per [ADR-039](../decisions/039-authentik-social-federation-invitation-enrollment.md), identities and access grants live **inside Authentik, never in git** — so this reader (like admin promotion) is a documented bootstrap step, not a blueprint. Only the resulting API token is a secret, and it lives in 1Password (item `platform-invite`, field `authentik_api_token`), synced into the pod by External Secrets.
 
 ## What it provisions
 
 - Service account user `grizzly-invite-reader` (`internal_service_account`).
 - Role `grizzly-invite-reader-role` with the global `authentik_core.view_group` permission (authentik's forked guardian only assigns perms to Roles, not users).
 - Group `grizzly-invite-readers` binding the role to the service account. This group is in the broker's `GROUP_DENYLIST` so it never appears as an invite chip.
-- A non-expiring API token, stored in OpenBao.
+- A non-expiring API token, stored in 1Password.
 
 ## Bootstrap (one-time, idempotent)
 
-Requires an authenticated OpenBao session (`BAO_ADDR=https://10.0.0.200:8200`, root or a token with patch on the invite path) and `kubectl` reaching the `authentik` namespace. Re-running converges (uses `get_or_create`); it does not mint a second token.
+Requires the `operator` 1Password token (`OP_SERVICE_ACCOUNT_TOKEN`, the only one with write access) and `kubectl` reaching the `authentik` namespace. Re-running converges (uses `get_or_create`); it does not mint a second token.
 
 ```bash
 export BAO_ADDR=https://10.0.0.200:8200
@@ -37,10 +37,10 @@ KEY=$(printf '%s\n' "$OUT" | grep '^GRIZZLYKEY:' | cut -d: -f2-)
 SEES=$(printf '%s\n' "$OUT" | grep '^GRIZZLYSEES:' | cut -d: -f2-)
 [ -n "$KEY" ] || { echo "failed to mint token"; exit 1; }
 echo "reader can view $SEES groups"
-bao kv patch -mount=secret grizzly-platform/platform/invite authentik_api_token="$KEY"
+op item edit platform-invite --vault grizzly-platform "authentik_api_token=$KEY"
 ```
 
-`$SEES` should equal the total group count (the reader sees every group). The `KEY` is never echoed — it goes straight into OpenBao.
+`$SEES` should equal the total group count (the reader sees every group). The `KEY` is never echoed — it goes straight into 1Password.
 
 **Order matters:** run this *before* deploying the chart that adds the `authentik_api_token` key to the invite ExternalSecret. An ExternalSecret fails as a whole if any referenced property is missing, so merging the chart change first would break the pod's secret sync.
 
@@ -60,7 +60,7 @@ If the token is unset/unreachable the broker logs a warning and serves the stati
 kubectl -n authentik exec deploy/authentik-server -- ak shell -c "
 from authentik.core.models import Token
 t=Token.objects.get(identifier='grizzly-invite-reader-api'); t.key=Token().key; t.save(); print('NEWKEY:'+t.key)"
-# capture NEWKEY, then: bao kv patch -mount=secret grizzly-platform/platform/invite authentik_api_token=<newkey>
+# capture NEWKEY, then: op item edit platform-invite --vault grizzly-platform authentik_api_token=<newkey>
 ```
 
 ESO resyncs within its refresh interval (1h); delete the pod to pick it up immediately.

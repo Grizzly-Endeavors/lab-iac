@@ -30,8 +30,8 @@
 #   ... --tags postgres
 #   ... --tags kv-cache
 #   ... --tags clickhouse
-#   ... --tags s3-hot      (versitygw — requires setup-versitygw-iam.yml first)
-#   ... --tags s3-bulk     (versitygw — requires setup-versitygw-iam.yml first)
+#   ... --tags s3-hot      (versitygw)
+#   ... --tags s3-bulk     (versitygw)
 #
 # Endpoints (after deploy) — IPs from ansible/inventory/group_vars/all/network.yml:
 #   PostgreSQL:        postgresql://postgres:<password>@<r730xd_ip>:5432/
@@ -95,8 +95,8 @@
     # OLAP store — single node, no Keeper. Backs Langfuse.
     - role: r730xd-clickhouse
       tags: [foundation, clickhouse]
-    # versitygw S3 stores (ADR-055).
-    # Prereq: setup-versitygw-iam.yml (1Password mount/approle/root creds).
+    # versitygw S3 stores (ADR-055). Accounts live in each gateway's own
+    # file IAM store on ZFS (ADR-072) — no external IAM prereq.
     - role: r730xd-s3-hot
       tags: [foundation, s3-hot]
     - role: r730xd-s3-bulk

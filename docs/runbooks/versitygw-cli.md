@@ -11,7 +11,7 @@ This page is the "how to drive the tool" reference. The migration/deployment sto
 - **Backend = a directory tree.** You point versitygw at one top-level directory. Each immediate sub-directory is a **bucket**; every file/dir below a bucket is an **object**, at its literal key path (the key is split on `/`). `s3://app-data/nested/path/big.bin` is the file `<root>/app-data/nested/path/big.bin`, byte-for-byte. No encoding, no packing, no proprietary layout. This is *the* reason it was chosen over SeaweedFS (which packs many objects into mutable volume files and defeats SnapRAID).
 - **Metadata rides in POSIX extended attributes** (`user.*` xattrs) on each object/bucket file — etag, checksum, content-type, version-id, retention, ACL. The backing filesystem **must support xattrs**; versitygw validates this at startup and refuses to run otherwise. (ext4 under MergerFS passes `user.*` xattrs through — verified.) Alternative metadata modes: `--sidecar <dir>` (store metadata in a parallel dir instead of xattrs) or `--nometa` (drop metadata entirely — don't).
 - **Stateless ⇒ HA is just "run more copies."** Multiple gateway processes over the same backend directory are valid. There is no metadata DB to corrupt (the Garage RF=1 risk that ADR-055's fallback carried does not exist here).
-- **IAM is pluggable.** Root credentials are always CLI/env. Additional accounts come from one of: internal file (`--iam-dir`), LDAP, **HashiCorp Vault / OpenBao** (our choice), S3, FreeIPA. See [IAM against OpenBao](#iam-against-openbao-vault-mode).
+- **IAM is pluggable, and it is a *store*, not an identity source.** Root credentials are always CLI/env. Additional accounts are created, updated and deleted by versitygw itself through its admin API, into one of: **internal file (`--iam-dir`, our choice)**, LDAP, HashiCorp Vault / OpenBao, S3, FreeIPA. Whatever backs it must accept writes and return the S3 secret in cleartext for SigV4 verification. See [IAM (internal file store)](#iam-internal-file-store).
 
 ## Invocation
 
@@ -42,7 +42,7 @@ Notes:
 - **`--admin-port` is separate from the S3 port.** The admin API (user management) listens there. If you omit it, admin shares the S3 port.
 - **`--health /health`** turns on a plain `GET /health → 200` liveness endpoint (used by the readiness probe).
 - **Pin the tag; verify current stable before bumping.** As of 2026-07-06 stable is v1.6.0 (2026-06-26); the project is actively maintained (multiple releases/month through mid-2026, Apache-2.0). Check [releases](https://github.com/versity/versitygw/releases) before changing the pin.
-- **Config changes require a process restart** — there is no live reload (stateless design). Restart the container; the backend directory and OpenBao accounts persist across restarts.
+- **Config changes require a process restart** — there is no live reload (stateless design). Restart the container; the backend directory and the IAM store persist across restarts.
 
 ## Global options (the ones that matter here)
 
@@ -144,55 +144,33 @@ Verified: a version under retention refuses `delete-object` with `AccessDenied �
 
 > **⚠️ Caveat (v1.6.0, verified): `--bypass-governance-retention` is rejected even for the root account.** In real AWS, GOVERNANCE mode is meant to be overridable by a principal holding `s3:BypassGovernanceRetention`; here the bypass returned `AccessDenied`, so **GOVERNANCE effectively behaves like COMPLIANCE** — retention is absolute until `RetainUntilDate`. This is *safer*, not weaker, but it deviates from AWS semantics: do not rely on being able to bypass a governance lock to clean up early. Re-check against upstream on the next version bump and update this note.
 
-## IAM against OpenBao (Vault mode)
+## IAM (internal file store)
 
-versitygw's "Vault" IAM backend speaks the HashiCorp Vault KV-v2 API, which **OpenBao is wire-compatible with** — verified working end-to-end against our OpenBao at `https://10.0.0.200:8200`. The root account stays CLI/env; all *other* accounts live in OpenBao KV and are managed through the admin API.
+Accounts live in versitygw's own file store, one directory per gateway on a dedicated ZFS dataset ([ADR-072](../decisions/072-versitygw-iam-on-internal-file-store.md)):
 
-### OpenBao side (one-time setup)
-
-```
-# a dedicated kv-v2 mount for versitygw accounts
-bao secrets enable -path=<mount> kv-v2
-
-# policy: full CRUD+list on that mount
-printf 'path "<mount>/*" { capabilities = ["create","read","update","delete","list"] }\n' \
-  | bao policy write versitygw-iam -
-
-# approle bound to the policy (production auth path; k8s-auth also works)
-bao write auth/approle/role/versitygw token_policies=versitygw-iam token_ttl=1h token_max_ttl=4h
-bao read  -field=role_id  auth/approle/role/versitygw/role-id
-bao write -f -field=secret_id auth/approle/role/versitygw/secret-id
-```
-
-### versitygw side (flags / env)
-
-| Flag | Env | Notes |
+| Gateway | `--iam-dir` (host path) | Mounted in container as |
 |---|---|---|
-| `--iam-vault-endpoint-url` | `VGW_IAM_VAULT_ENDPOINT_URL` | `https://10.0.0.200:8200` |
-| `--iam-vault-mount-path` | `VGW_IAM_VAULT_MOUNT_PATH` | the kv-v2 mount name (`<mount>`) |
-| `--iam-vault-secret-storage-path` | `VGW_IAM_VAULT_SECRET_STORAGE_PATH` | sub-prefix under the mount (e.g. `accounts`) |
-| `--iam-vault-auth-method` | `VGW_IAM_VAULT_AUTH_METHOD` | `approle` (or root-token for dev) |
-| `--iam-vault-role-id` | `VGW_IAM_VAULT_ROLE_ID` | approle role id |
-| `--iam-vault-role-secret` | `VGW_IAM_VAULT_ROLE_SECRET` | approle secret id (keep off argv — use env/env-file) |
-| `--iam-vault-root-token` | `VGW_IAM_VAULT_ROOT_TOKEN` | dev-only alternative to approle |
-| `--iam-vault-server_cert` | `VGW_IAM_VAULT_SERVER_CERT` | **PEM *content*, not a file path** — see gotcha |
+| s3-hot | `/mnt/zfs/foundation/versitygw-iam/s3-hot` | `/data/iam` |
+| s3-bulk | `/mnt/zfs/foundation/versitygw-iam/s3-bulk` | `/data/iam` |
 
-> **⚠️ Gotcha that cost a cycle: `--iam-vault-server_cert` takes the CA certificate *contents*, not a path.** Passing `/data/ca.crt` fails at startup with `could not configure root certificate: Error appending CA: Couldn't parse PEM` (it tried to parse the literal path string as a PEM). Pass the actual PEM text, e.g. `-e VGW_IAM_VAULT_SERVER_CERT="$(cat ca.crt)"`. The OpenBao CA is `~/.config/openbao/ca.crt` on the control node (its SAN covers `10.0.0.200`). Contrast the S3-listener `--cert`/`--key`, which *are* file paths.
-
-On successful start the log shows `initializing Vault IAM with "https://10.0.0.200:8200"` and then the normal banner (no auth error).
+The root account stays CLI/env (`ROOT_ACCESS_KEY` / `ROOT_SECRET_KEY`); every other account is managed through the admin API. There is nothing to authenticate to and no external service in the path — an S3 request resolves the caller's access key against this file and verifies SigV4 with the stored secret.
 
 ### How accounts are stored
 
-Each account is a KV-v2 secret at `<mount>/data/<storage-path>/<access-key>`, whose data is a **single field named after the access key**, with a JSON-object value:
+versitygw owns the format: a `users.json` plus a `users.json.backup` it maintains itself, both `0600` root-owned.
 
 ```
-# bao kv get <mount>/accounts/appuser  →  field "appuser" =
-{"access":"appuser","secret":"…","role":"user","userID":0,"groupID":0,"projectID":0}
+/mnt/zfs/foundation/versitygw-iam/s3-hot/
+├── users.json
+└── users.json.backup
 ```
 
-`list-users` reads these back from OpenBao; a live S3 request resolves the caller's access key against this store and verifies SigV4 with the stored secret (wrong secret → `SignatureDoesNotMatch`; right secret but insufficient role → `AccessDenied`). Both paths verified.
+**Do not hand-edit these.** Use `versitygw admin create-user` / `update-user` / `delete-user`; the running gateway holds the file and writes it itself.
+
+Both directories are on ZFS — including s3-bulk's, whose *objects* live on MergerFS+SnapRAID. SnapRAID parity is point-in-time, and losing the account store locks every consumer out of data that is otherwise intact. Both systemd units therefore `RequiresMountsFor` the IAM dir as well as the data dir: a gateway started onto an unmounted IAM dir would come up healthy with an empty account store and reject every non-root caller.
 
 > **⚠️ IAM cache: account changes lag up to `--iam-cache-ttl` (default 120s).** After `create-user` / `update-user` / `delete-user`, S3 auth for that key may not reflect for up to 2 minutes. For immediate effect during ops, run with `--iam-cache-disable` or wait out the TTL. (A brand-new key that isn't cached yet resolves immediately on first use — the lag bites on *changes* to already-cached keys.)
+
 
 ## The admin API (user & bucket management)
 
@@ -219,7 +197,7 @@ versitygw admin -a <admin-access> -s <admin-secret> --er <admin-endpoint> <subco
 **Roles** (the `-r` value): `user` (may only use buckets it's been granted — **cannot create buckets**), `userplus` (may create/own its own buckets), `admin` (full). In the spike, a `user`-role key got `AccessDenied` on `CreateBucket`; recreating it as `userplus` let it create and own buckets (on-disk `user.acl` then shows `Owner: appuser`).
 
 ```
-# create a userplus account (writes to OpenBao):
+# create a userplus account (writes to the file store):
 ADMIN_ACCESS_KEY_ID=<root> ADMIN_SECRET_KEY=<root-secret> \
   versitygw admin --er http://versitygw:7071 create-user -a appuser -s <secret> -r userplus
 versitygw admin --er http://versitygw:7071 list-users
@@ -250,13 +228,13 @@ s3cmd --no-ssl --host=<host>:7070 --host-bucket=<host>:7070 \
 - **Logs:** per-request lines on stdout (silence with `--quiet`); `--access-log <file>` for a dedicated access log; `--iam-debug` / `--debug` for auth/signing diagnosis; captured by the container runtime.
 - **Metrics:** StatsD (`--mss`) / DogStatsD (`--mds`). No native Prometheus endpoint — bridge via a statsd-exporter if Prometheus scraping is wanted.
 - **Events:** bucket notifications to Kafka / NATS / RabbitMQ / webhook (`--event-*`).
-- **Restart/recovery:** stateless — `docker restart` (or pod reschedule) is safe and loses nothing; all state is the backend dir + OpenBao. Any flag/config change *requires* a restart (no live reload).
-- **Dependencies:** the backing filesystem (ZFS `s3-hot` / MergerFS+SnapRAID `s3-bulk`) must be mounted with working `user.*` xattr support before start (validated at startup); OpenBao must be reachable+unsealed for non-root IAM.
+- **Restart/recovery:** stateless — `docker restart` (or pod reschedule) is safe and loses nothing; all state is the backend dir + the IAM dir. Any flag/config change *requires* a restart (no live reload).
+- **Dependencies:** the backing filesystem (ZFS `s3-hot` / MergerFS+SnapRAID `s3-bulk`) must be mounted with working `user.*` xattr support before start (validated at startup), and the ZFS IAM dataset must be mounted. Nothing external.
 
 ## Gotchas (the short list)
 
-1. **`--iam-vault-server_cert` is PEM content, not a path.** `--cert`/`--key` for the S3 listener *are* paths. Mixing these up gives `Couldn't parse PEM`.
-2. **IAM account changes lag up to 120s** (`--iam-cache-ttl`). Use `--iam-cache-disable` for immediate effect.
+1. **IAM account changes lag up to 120s** (`--iam-cache-ttl`). Use `--iam-cache-disable` for immediate effect.
+2. **Never hand-edit `users.json`** — the running gateway owns the file. Go through `versitygw admin`.
 3. **GOVERNANCE object-lock can't be bypassed in v1.6.0** — it behaves like COMPLIANCE (see caveat). Re-verify on version bumps.
 4. **Role `user` cannot create buckets** — use `userplus` for self-service bucket owners.
 5. **Bucket-name validation happens before signature verification** — an invalid bucket name masks auth errors; test auth against a valid bucket name.

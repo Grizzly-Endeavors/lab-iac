@@ -50,7 +50,7 @@ spec:
                 - keys:
                     # grizzly-gate cosign PUBLIC key (not secret). Same key as
                     # verify-gate-signature.yaml; matches the private half in
-                    # OpenBao secret/grizzly-platform/cicd/cosign.
+                    # the 1Password item cicd-cosign.
                     publicKeys: |-
                       -----BEGIN PUBLIC KEY-----
                       MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE4KBckBkLKLINu9WATY50fiJXw1G7

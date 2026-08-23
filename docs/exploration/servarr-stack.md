@@ -11,7 +11,7 @@ Nothing here is committed. If adopted, this graduates to an ADR (media-stack sto
 
 ## Where it lives
 
-- **Repo: lab-apps (private), not grizzly-platform.** Sonarr/Radarr/Prowlarr are legitimate FOSS and plenty of people run them in public homelab repos, so this isn't about the software being "dirty." The concrete risks are narrow: leaking private-tracker announce URLs / indexer definitions (which can get you banned from those trackers) — but routing all secrets through OpenBao + ESO keeps the manifests clean and neutralizes that. The real reason it belongs in lab-apps is the existing routing rule: it's a personal/third-party app, and those go in lab-apps regardless of legality.
+- **Repo: lab-apps (private), not grizzly-platform.** Sonarr/Radarr/Prowlarr are legitimate FOSS and plenty of people run them in public homelab repos, so this isn't about the software being "dirty." The concrete risks are narrow: leaking private-tracker announce URLs / indexer definitions (which can get you banned from those trackers) — but routing all secrets through 1Password + ESO keeps the manifests clean and neutralizes that. The real reason it belongs in lab-apps is the existing routing rule: it's a personal/third-party app, and those go in lab-apps regardless of legality.
 - One Flux Kustomization, its own namespace.
 
 ## Storage — split by access pattern (the crux)
@@ -54,7 +54,7 @@ The goal is no VPN juggling. **Authentik forward-auth via ingress-nginx** gates 
 Two unrelated VPNs — worth separating so "wire in a VPN" doesn't get conflated with juggling:
 
 - **Access VPN (Tailscale)** — for *you* to reach apps. This is the juggling being avoided. **Authentik replaces it entirely. Gone.**
-- **Egress VPN (gluetun sidecar)** — for the *torrent client's outbound traffic* only, so the home IP never hits a swarm. Always-on sidecar scoped to the qBittorrent pod, with a killswitch so a dropped tunnel can't leak. Zero juggling. Pick a provider with **port forwarding** if seed ratios matter (ProtonVPN / AirVPN / PIA still offer it; Mullvad dropped it). Creds → OpenBao. Only the download client sits behind it; the `.arr` apps and Jellyfin route normally.
+- **Egress VPN (gluetun sidecar)** — for the *torrent client's outbound traffic* only, so the home IP never hits a swarm. Always-on sidecar scoped to the qBittorrent pod, with a killswitch so a dropped tunnel can't leak. Zero juggling. Pick a provider with **port forwarding** if seed ratios matter (ProtonVPN / AirVPN / PIA still offer it; Mullvad dropped it). Creds → 1Password. Only the download client sits behind it; the `.arr` apps and Jellyfin route normally.
 
 ## Compute — GPU tower for Jellyfin
 

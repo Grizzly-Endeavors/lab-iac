@@ -2,7 +2,7 @@
 
 How to quiesce everything that touches `tank` on the R730xd so the pool can be exported, and how to bring it all back. Needed for any operation requiring an idle pool — export/import, vdev path changes, controller work.
 
-**This is a platform-wide outage.** `tank` backs foundation Postgres, kv-cache, ClickHouse, s3-hot, OpenBao, Residuum, the entire observability stack, and 35 zvols serving K8s PVCs. Authentik depends on Postgres and kv-cache, so **SSO goes down** — confirm `kubectl` and host SSH work without it before starting.
+**This is a platform-wide outage.** `tank` backs foundation Postgres, kv-cache, ClickHouse, s3-hot, the versitygw IAM store for *both* gateways, Residuum, the entire observability stack, and 35 zvols serving K8s PVCs. Authentik depends on Postgres and kv-cache, so **SSO goes down** — confirm `kubectl` and host SSH work without it before starting.
 
 Related: [ADR-070](../decisions/070-zfs-pool-stable-device-paths.md) (stable device paths), [ADR-003](../decisions/003-foundation-stores-on-r730xd.md) (foundation stores).
 
@@ -24,7 +24,7 @@ Take a logical Postgres dump too. It restores without any ZFS tooling, which is 
 sudo bash -c "docker exec foundation-postgres pg_dumpall -U postgres | gzip > /mnt/pool/backups/postgres/pg_dumpall-<label>.sql.gz"
 ```
 
-Avoid the cron windows: `02:00` daily (pg-backup), `02:15` daily (openbao-backup), `02:00` Sunday (scrub).
+Avoid the cron windows: `02:00` daily (pg-backup), `02:00` Sunday (scrub).
 
 ## Stop
 
@@ -66,18 +66,19 @@ Leave the `nfs-controller` / `nfs-node` alone — they serve MergerFS, not `tank
 **5. Stop tank-backed Docker on the host.** Observability first (it depends on foundation), then foundation. Use `compose down` / `systemctl stop`, never bare `docker stop` — everything is `restart: unless-stopped` and a plain stop will not survive a daemon restart.
 
 ```bash
-for s in alloy grafana tempo loki prometheus exporters openbao-agent; do
+for s in alloy grafana tempo loki prometheus exporters; do
   sudo docker compose -f /opt/observability/$s/docker-compose.yml down
 done
 sudo systemctl stop foundation-residuum
 for s in clickhouse kv-cache postgres; do
   sudo docker compose -f /opt/foundation/$s/docker-compose.yml down
 done
-sudo systemctl stop foundation-s3-hot
-sudo systemctl stop openbao-auto-unseal foundation-openbao
+sudo systemctl stop foundation-s3-hot foundation-s3-bulk
 ```
 
-Leave `foundation-s3-bulk` and `nfs-server` running — both are MergerFS-backed.
+**Both** gateways stop, including `foundation-s3-bulk`. Its *objects* are on MergerFS, but its IAM account store is the ZFS dataset `tank/foundation/versitygw-iam/s3-bulk` ([ADR-072](../decisions/072-versitygw-iam-on-internal-file-store.md)) — leaving it up holds `tank` busy and would strand the gateway on a vanished account store.
+
+Leave `nfs-server` running — it is purely MergerFS-backed.
 
 **6. Save and stop the iSCSI target.** `rtslib-fb-targetctl` is what pins the 35 zvols; the export fails with "pool is busy" until it is down.
 
@@ -102,7 +103,7 @@ Reverse order. Each step gates the next.
 
 ```bash
 sudo zpool import -d /dev/disk/by-id tank
-zfs mount | wc -l                        # expect 11 filesystems
+zfs mount | wc -l                        # expect 12 filesystems
 ls /dev/zvol/tank/iscsi/ | wc -l         # expect 35
 ```
 
@@ -112,22 +113,19 @@ If a vdev rejoins after being offline, ZFS delta-resilvers the transactions it m
 
 **2. iSCSI target:** `sudo systemctl start rtslib-fb-targetctl.service`, then `sudo targetcli ls` → 35 backstores, 35 targets.
 
-**3. OpenBao, early** — External Secrets and the Prometheus agent both depend on it:
+**3. Foundation stores, in order:** `postgres` → `kv-cache` → `clickhouse` → `systemctl start foundation-s3-hot foundation-s3-bulk`.
+
+Check both gateways came back with their accounts — a gateway that started before its IAM dataset mounted comes up healthy but rejects every non-root key:
 
 ```bash
-sudo systemctl start foundation-openbao
-sudo systemctl start openbao-auto-unseal
+ls /mnt/zfs/foundation/versitygw-iam/{s3-hot,s3-bulk}/users.json
 ```
 
-`openbao-auto-unseal` is `Restart=no` and needs Infisical reachable. If it fails, fix the cause and re-run it manually; OpenBao stays sealed until then.
-
-**4. Foundation stores, in order:** `postgres` → `kv-cache` → `clickhouse` → `systemctl start foundation-s3-hot`.
-
-**5. Observability, in order:** `prometheus` → `exporters` → `loki` → `tempo` → `grafana` → `alloy` → `openbao-agent`.
+**4. Observability, in order:** `prometheus` → `exporters` → `loki` → `tempo` → `grafana` → `alloy`.
 
 Grafana's database is foundation Postgres, and Loki and Tempo use s3-hot as their object store — starting either ahead of its dependency produces a crash loop.
 
-**6. Residuum:** `sudo systemctl start foundation-residuum`.
+**5. Residuum:** `sudo systemctl start foundation-residuum`.
 
 **7. CSI, node before controller:**
 

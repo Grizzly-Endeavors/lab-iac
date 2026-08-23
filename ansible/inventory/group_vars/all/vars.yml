@@ -21,15 +21,13 @@ clickhouse_password: "{{ vault_clickhouse_password }}"
 # out of scope there and the threshold would silently evaluate against nothing.
 clickhouse_max_server_memory_bytes: 8589934592  # 8 GiB
 
-# versitygw stores (ADR-055). Root creds per gateway
-# + the shared OpenBao AppRole the gateways use for their Vault-IAM account
-# store. Provisioned into OpenBao by setup-versitygw-iam.yml.
+# versitygw stores (ADR-055). Root creds per gateway — the bootstrap admin
+# each gateway boots with. All other S3 accounts live in the gateway's own
+# file IAM store (ADR-072) and are managed through its admin API.
 s3_hot_root_access_key: "{{ vault_s3_hot_root_access_key }}"
 s3_hot_root_secret_key: "{{ vault_s3_hot_root_secret_key }}"
 s3_bulk_root_access_key: "{{ vault_s3_bulk_root_access_key }}"
 s3_bulk_root_secret_key: "{{ vault_s3_bulk_root_secret_key }}"
-versitygw_iam_role_id: "{{ vault_versitygw_iam_role_id }}"
-versitygw_iam_role_secret: "{{ vault_versitygw_iam_secret_id }}"
 
 # Observability stack (R730xd)
 grafana_admin_password: "{{ vault_grafana_admin_password }}"
@@ -72,21 +70,6 @@ trusted_wifi_psk: "{{ vault_trusted_wifi_psk }}"
 wg_vps_public_key: "{{ vault_wg_vps_public_key }}"
 wg_r730xd_public_key: "{{ vault_wg_r730xd_public_key }}"
 
-# OpenBao (R730xd) — Infisical universal-auth credentials for the
-# bootstrap machine identity. Surface encrypted values as the plain
-# variables the r730xd-openbao role expects.
-# See docs/decisions/023-self-hosted-openbao-on-r730xd.md
-infisical_openbao_client_id: "{{ vault_infisical_openbao_client_id }}"
-infisical_openbao_client_secret: "{{ vault_infisical_openbao_client_secret }}"
-
-# OpenBao Infisical project ID — pulled from .infisical.json at the repo
-# root so there's one source of truth for the workspace identifier.
-# Safe to commit: the client_id/secret pair is what grants access, not
-# the project ID. $PWD is the CWD ansible was launched from, which is
-# always the repo root per README / ansible.cfg conventions.
-openbao_infisical_project_id: >-
-  {{ (lookup('file', lookup('env', 'PWD') ~ '/.infisical.json') | from_json).workspaceId }}
-
 # -----------------------------------------------------------------------
 # Platform secrets via 1Password
 # -----------------------------------------------------------------------
@@ -109,23 +92,3 @@ onepassword_vault: "grizzly-platform"
 # token is re-minted, and re-run setup-1password-eso.yml.
 onepassword_tokens_minted: "2026-08-01"
 
-# OpenBao API endpoint — LAN-only, served on r730xd. Surfaced here (not just
-# in the role defaults) because plays that don't apply the r730xd-openbao role
-# still need to reach the API. Port from the role defaults.
-openbao_api_port: 8200
-openbao_api_addr: "https://{{ r730xd_ip }}:{{ openbao_api_port }}"
-
-# OpenBao CA bundle on the controller. The r730xd-openbao role installs
-# the CA into the host trust store during deploy-openbao.yml; for the
-# jumpbox/bear-desktop controller, fetch it via:
-#   scripts/fetch-openbao-ca.sh
-# Override via `-e openbao_tls_ca_path=/alt/path/ca.crt`.
-openbao_tls_ca_path: "/usr/local/share/ca-certificates/grizzly-platform-openbao-ca.crt"
-
-# OpenBao Agent that mints the Prometheus sys/metrics scrape token (issue #41).
-# Shared here (not just in the r730xd-openbao-agent role defaults) because the
-# r730xd-prometheus role bind-mounts the sink dir to read the token. The sink
-# token is short-TTL and read-only on sys/metrics, so a host-local 0644 file is
-# acceptable; the secret_id that authenticates the agent is CIDR-bound + 0600.
-openbao_agent_base_dir: "/opt/observability/openbao-agent"
-openbao_agent_sink_dir: "{{ openbao_agent_base_dir }}/sink"

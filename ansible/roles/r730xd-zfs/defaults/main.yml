@@ -48,6 +48,12 @@ zfs_datasets:
   # backend).
   - name: foundation/s3-hot
     recordsize: 1M
+  # versitygw account stores (ADR-072) — one small JSON file per gateway,
+  # under s3-hot/ and s3-bulk/. Lives on ZFS for both tiers: the bulk
+  # gateway's objects sit on MergerFS+SnapRAID, whose parity is
+  # point-in-time, and losing the account store locks every S3 consumer out.
+  - name: foundation/versitygw-iam
+    recordsize: 16K
   - name: observability/prometheus
     recordsize: 128K      # TSDB blocks
   - name: observability/loki

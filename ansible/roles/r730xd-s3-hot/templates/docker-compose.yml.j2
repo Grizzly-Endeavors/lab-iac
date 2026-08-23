@@ -20,16 +20,10 @@ services:
       - "{{ s3_hot_s3_port }}:{{ s3_hot_s3_port }}"
     env_file:
       - versitygw.env
-    environment:
-      # OpenBao CA for the Vault-IAM TLS connection. versitygw wants the PEM
-      # *content* here, NOT a file path (docs/runbooks/versitygw-cli.md gotcha —
-      # a path yields "Couldn't parse PEM"). Inlined by Ansible from the host CA
-      # bundle; the CA is a public certificate, so it is safe in this file.
-      VGW_IAM_VAULT_SERVER_CERT: |
-{{ s3_hot_ca_pem | indent(8, first=True) }}
     volumes:
       - {{ s3_hot_data_dir }}:/data/s3
       - {{ s3_hot_versions_dir }}:/data/versions
+      - {{ s3_hot_iam_dir }}:/data/iam
     command:
       - "--port"
       - ":{{ s3_hot_s3_port }}"
@@ -39,14 +33,8 @@ services:
       - "/health"
       - "--region"
       - "{{ s3_hot_region }}"
-      - "--iam-vault-endpoint-url"
-      - "{{ s3_hot_iam_vault_endpoint }}"
-      - "--iam-vault-mount-path"
-      - "{{ s3_hot_iam_vault_mount_path }}"
-      - "--iam-vault-secret-storage-path"
-      - "{{ s3_hot_iam_vault_storage_path }}"
-      - "--iam-vault-auth-method"
-      - "approle"
+      - "--iam-dir"
+      - "/data/iam"
       - "--metrics-statsd-servers"
       - "statsd-exporter:{{ s3_hot_statsd_port }}"
       - "posix"

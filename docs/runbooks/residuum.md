@@ -16,9 +16,9 @@ Residuum is the platform assistant running on the **R730xd** (`10.0.0.200`) as a
 ## Deploy / update
 
 ```bash
-ansible-playbook -i ansible/inventory ansible/playbooks/deploy-residuum.yml -e openbao_read_enabled=true
+ansible-playbook -i ansible/inventory ansible/playbooks/deploy-residuum.yml
 # tools volume only:
-ansible-playbook -i ansible/inventory ansible/playbooks/deploy-residuum.yml -e openbao_read_enabled=true --tags tools
+ansible-playbook -i ansible/inventory ansible/playbooks/deploy-residuum.yml --tags tools
 ```
 
 **Upgrading residuum:** bump `residuum_image` in `ansible/roles/r730xd-residuum/defaults/main.yml` to the new release tag and re-run. There is no custom image — the tag is the only thing that changes.
@@ -47,7 +47,7 @@ Preferred (IaC): add an entry to `residuum_tool_archives` (or a `get_url` task) 
 
 The `exec` tool re-reads the effective PATH on every call, so a new binary is usable immediately. Only an **already-running MCP stdio server** keeps its old PATH, until it next reconnects.
 
-Pin versions to the platform, not to "latest": `kubectl` must stay within ±1 minor of the cluster API server, `flux` should match the deployed source-controller, `bao` should match the OpenBao server.
+Pin versions to the platform, not to "latest": `kubectl` must stay within ±1 minor of the cluster API server, and `flux` should match the deployed source-controller.
 
 ## Common failures
 
@@ -57,7 +57,7 @@ Almost always config. Check `docker logs foundation-residuum`:
 - TLS / certificate errors reaching a model provider → the image is missing its CA bundle. Confirm the pinned image is ≥ the release carrying residuum [#112](https://github.com/Grizzly-Endeavors/residuum/issues/112).
 
 **Agent runs but the browser can't reach it.**
-Check for `tunnel connected`. If absent, the relay token is bad or the relay is down (`RESIDUUM_CLOUD_TOKEN`, from OpenBao `secret/grizzly-platform/platform/residuum`). The agent keeps working locally; only the browser path is lost. There is intentionally **no** LAN fallback — see below.
+Check for `tunnel connected`. If absent, the relay token is bad or the relay is down (`RESIDUUM_CLOUD_TOKEN`, from the 1Password item `platform-residuum`). The agent keeps working locally; only the browser path is lost. There is intentionally **no** LAN fallback — see below.
 
 **Agent can't run a tool.**
 `docker exec foundation-residuum sh -c 'echo $PATH; which gh kubectl flux bao uv'`. If the mount is missing, check `/opt/residuum-tools` exists on the host and the compose volume line is present.
@@ -96,4 +96,4 @@ The unit guards on the ZFS mount (`RequiresMountsFor`), so it refuses to start o
 - The web UI has **no local authentication**. The only protections are (a) loopback bind + no published port, and (b) the relay's own auth. **Never add a `ports:` mapping** to the compose file — that would expose an unauthenticated console onto an agent holding platform credentials.
 - The tools volume is mounted read-only so the agent cannot rewrite its own toolbox. It *can* still write to `~/.residuum/bin` on the state volume.
 - Mutation goes through PRs, but the agent can merge its own and Flux applies on merge — it can change production unattended. The safety property is *traceability*, not prevention: every change is a PR you can find and revert. See "Backing out a change the agent made" above.
-- Rotating a credential: update OpenBao, then re-run the playbook (re-renders `residuum.env`) and restart.
+- Rotating a credential: update the 1Password item, then re-run the playbook (re-renders `residuum.env`) and restart.

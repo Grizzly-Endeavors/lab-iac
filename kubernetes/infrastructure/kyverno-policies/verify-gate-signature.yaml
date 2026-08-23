@@ -52,8 +52,8 @@ spec:
               entries:
                 - keys:
                     # grizzly-gate cosign PUBLIC key (not secret). Matches the
-                    # private half in OpenBao secret/grizzly-platform/cicd/cosign.
-                    # Rotate: regenerate keypair, bao kv put, replace this block.
+                    # private half in the 1Password item cicd-cosign.
+                    # Rotate: regenerate keypair, op item edit, replace this block.
                     publicKeys: |-
                       -----BEGIN PUBLIC KEY-----
                       MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE4KBckBkLKLINu9WATY50fiJXw1G7

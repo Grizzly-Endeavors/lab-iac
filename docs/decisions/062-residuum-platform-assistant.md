@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-20
 **Status:** Accepted
-**Relates to:** [ADR-003](003-foundation-stores-on-r730xd.md) (stateful workloads live on the R730xd), [ADR-024](024-platform-secrets-on-openbao.md) (OpenBao → Ansible → host secret pattern), [ADR-055](055-versitygw-s3-gateway.md) (the systemd-wrapped compose + ZFS mount-guard role shape this copies)
+**Relates to:** [ADR-003](003-foundation-stores-on-r730xd.md) (stateful workloads live on the R730xd), [ADR-024](024-platform-secrets-on-openbao.md) (OpenBao → Ansible → host secret pattern), [ADR-055](055-s3-object-store-versitygw.md) (the systemd-wrapped compose + ZFS mount-guard role shape this copies)
 
 ## Context
 

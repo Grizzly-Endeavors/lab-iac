@@ -22,12 +22,21 @@ consumers.
 ### 1. versitygw IAM — the blocker
 
 OpenBao is still **load-bearing**, and not for secret delivery: both S3
-gateways keep their IAM account stores in it (`VGW_IAM_VAULT_*` against the
-`versitygw-iam` mount — see the `r730xd-s3-hot` and `r730xd-s3-bulk` roles).
-Every S3 account rides on this. OpenBao cannot be switched off until that store
-moves to another versitygw IAM backend, and that migration touches the S3 layer
-the rest of the platform sits on. Do this first — everything below is cleanup
-that is blocked behind it.
+gateways keep their IAM *account records* in it. They run with
+`--iam-vault-endpoint-url https://10.0.0.200:8200 --iam-vault-mount-path
+versitygw-iam` (see the `r730xd-s3-hot` and `r730xd-s3-bulk` roles), and every
+S3 account lives under that mount.
+
+**The `stores-versitygw-iam` item in 1Password does not mean this is done.**
+That item holds the AppRole `role_id`/`secret_id` the gateways use to
+*authenticate to* OpenBao. The credential moved to 1Password; the data it
+unlocks did not. Reading the item's presence as "versitygw is migrated" and
+switching OpenBao off would take out every S3 account on both gateways.
+
+OpenBao cannot be switched off until that account store moves to another
+versitygw IAM backend, and that migration touches the S3 layer the rest of the
+platform sits on. Do this first — everything below is cleanup that is blocked
+behind it.
 
 ### 2. Docs
 

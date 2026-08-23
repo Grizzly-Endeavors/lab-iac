@@ -138,6 +138,15 @@ Secrets stay in 1Password; the job reads a LiteLLM master key, a Langfuse bootst
 - **Sync job:** a small CLI (Python, `httpx`) in a CronJob + Argo Workflow on merge of `teams.yaml`. ~400 lines. This is the only new code.
 - **Sizing hint from upstream for this user count:** LiteLLM 1 vCPU / 4 GiB per pod minimum; Redis in-cluster-adjacent; nothing exotic.
 
+## Control plane instead of files
+
+`teams.yaml` was only the cheapest single source of truth. The same sync logic becomes a **control-plane service** with its own Postgres (desired state + audit log), a web UI in front, and the reconciler behind — git is not in the loop.
+
+- **Objects:** Teams (IdP group, budget, model tiers, admins, retention), Model catalog (replaces `model_list`; reconciler writes LiteLLM's DB via `STORE_MODEL_IN_DB`), Assistants (pushed as LibreChat `modelSpecs` role overrides). Plus Activity (audit, reconciler runs, drift) and Requests (approvals).
+- **Why a DB, not git:** audit is a table the UI shows; approvals are a state machine (`pending → approved → applied`); drift against the live apps is recorded and re-appliable; policy (caps, allowed tiers) lives in the service so team leads can self-serve; keys are minted and pushed by the service and never handled by a human. YAML is an export for DR/seed only.
+- **Two adapters, one codebase:** enterprise (SCIM does membership; Langfuse Instance Management API; project-level RBAC → one org, scoped projects) and OSS (reconciler does membership; Langfuse tRPC; org-per-team). The OSS build is the home test bed for the enterprise one.
+- **Door policy:** the per-app admin UIs stay reachable as break-glass for platform admins only; everyone else goes through the control plane, or drift becomes normal.
+
 ## Decision needed before building
 
 Whether to stay OSS with the tRPC dependency and org-per-team, or buy Langfuse EE for the supported API + project RBAC + SCIM. Everything else is settled by the tests above. If OSS: write the sync job first, since it is the piece that turns three admin panels into one file.

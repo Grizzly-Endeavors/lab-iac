@@ -66,7 +66,8 @@ One line per decision, grouped by domain. See [`README.md`](README.md) for what 
 - [057-container-builds-buildkit](057-container-builds-buildkit.md) — Kaniko → BuildKit for image builds.
 - [063-gate-runs-in-cluster](063-gate-runs-in-cluster.md) — the CI gate runs as a K8s Job (containerd-cached image, cosign key off the runners).
 - [069-kyverno-failurepolicy-tracks-failureaction](069-kyverno-failurepolicy-tracks-failureaction.md) — an Audit policy uses `failurePolicy: Ignore` so a webhook timeout can't block admission.
-- [071-self-hosted-gitlab-runners](071-self-hosted-gitlab-runners.md) — GitLab CI on a split namespace pair: job code gets internet-only egress, no token, no API, rootless BuildKit.
+- [071-self-hosted-gitlab-runners](071-self-hosted-gitlab-runners.md) — GitLab CI on a split namespace pair: job code gets internet-only egress, no token, no API, rootless BuildKit (superseded by 074).
+- [074-retire-gitlab-runners](074-retire-gitlab-runners.md) — **current.** Self-hosted GitLab runner pool retired; no GitLab CI runs on the cluster.
 
 ## Secrets
 

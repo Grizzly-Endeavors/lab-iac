@@ -24,7 +24,6 @@ Kubernetes default NodePort range: 30000-32767.
 | 30892 | grizzly-invite metrics          | Prometheus scraping              | `kubernetes/apps/grizzly-invite` (Helm chart values)   |
 | 30893 | career-scanner metrics          | Prometheus scraping              | career-scanner chart values (Flux HelmRelease)         |
 | 30894 | external-secrets metrics        | Prometheus scraping              | `kubernetes/infrastructure/external-secrets/metrics-service.yaml` |
-| 30895 | GitLab Runner manager metrics   | Prometheus scraping              | `kubernetes/infrastructure/gitlab-runners/metrics-service.yaml` |
 | 30080 | kube-state-metrics              | Prometheus scraping              | **not in repo** — applied manually, see note below     |
 | 30025 | Stalwart SMTP (25)              | Inbound mail via HAProxy/tunnel  | `kubernetes/infrastructure/stalwart/service.yaml`      |
 | 30465 | Stalwart submissions (465)      | Implicit-TLS submission via VPS  | `kubernetes/infrastructure/stalwart/service.yaml`      |

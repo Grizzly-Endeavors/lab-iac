@@ -14,12 +14,6 @@ Centralized CI gate — versioned `grizzly-gate` image runs per-language checks 
 - **How:** [runbooks/ci-gate.md](docs/runbooks/ci-gate.md) (operate) · **integrate:** [integration/deploy.md](docs/integration/deploy.md) (get an app onto the cluster through the gate) · overview [ci-gate.md](docs/ci-gate.md), threat model [ci-gate-coverage.md](docs/ci-gate-coverage.md).
 - **Code:** `.github/workflows/gate.yaml` (reusable), `kubernetes/infrastructure/argo-workflows/build-gate-image.yaml` (build), `kubernetes/infrastructure/kyverno{,-policies}/` (admission), `docker/grizzly-gate/` (pointer stub). Signing key: 1Password item `cicd-cosign`.
 
-### GitLab CI runners
-Self-hosted GitLab Runner pool for a GitLab SaaS group, using the Kubernetes executor. Split across two namespaces so job code runs without the runner token, without Kubernetes API access, and without LAN reach — internet-only egress, rootless BuildKit for image builds.
-- **Why:** [ADR-071](docs/decisions/071-self-hosted-gitlab-runners.md) (isolation posture, IPv6 denial, no distributed cache).
-- **How:** [runbooks/gitlab-runners.md](docs/runbooks/gitlab-runners.md) (create the runner, token chain, BuildKit recipe, failure modes).
-- **Code:** `kubernetes/infrastructure/gitlab-runners/` + its own Flux Kustomization `kubernetes/clusters/grizzly-platform/gitlab-runners.yaml`.
-
 ### Secrets (1Password)
 The `grizzly-platform` 1Password vault is the platform secrets source of truth. K8s reads via External Secrets Operator (`onepassword` ClusterSecretStore); Ansible reads via `op` lookups. Three service account tokens reach it and nothing else does.
 - **Why:** [ADR-073](docs/decisions/073-retire-openbao.md) (1Password as the source of truth; OpenBao retired), [048](docs/decisions/048-first-party-app-secrets-domain.md) (app secrets domain).

@@ -1,28 +1,70 @@
 # Thread: OpenBao → 1Password for platform secrets
 
-**Goal:** move platform secret delivery off OpenBao onto 1Password — the `onepassword` ESO `ClusterSecretStore` for Kubernetes, and `ansible/vars/onepassword_secrets.yml` lookups for Ansible.
+**Goal:** move platform secret delivery off OpenBao onto 1Password — the
+`onepassword` ESO `ClusterSecretStore` for Kubernetes, and
+`ansible/vars/onepassword_secrets.yml` lookups for Ansible. **OpenBao is being
+retired outright**, not kept for the Ansible/AppRole path or other non-ESO
+consumers.
 
 ## Done
 
-- The `onepassword` `ClusterSecretStore` is live and is what every workload actually uses: **23 of 23 ExternalSecrets in the cluster reference it, and none reference `openbao`.**
-- `ansible/vars/onepassword_secrets.yml` defines the `vault_*` variables as 1Password lookups; 22 playbooks include it.
-- Operator runbook exists: [`runbooks/onepassword-quickref.md`](../runbooks/onepassword-quickref.md) (tokens, rate limits, alert response, rotation).
+- **Secret delivery is fully migrated.** Every ExternalSecret in the cluster
+  references the `onepassword` store and none reference `openbao`; every
+  playbook that reads platform secrets includes `onepassword_secrets.yml`, and
+  `ansible/vars/openbao_secrets.yml` is gone.
+- Operator runbook exists:
+  [`runbooks/onepassword-quickref.md`](../runbooks/onepassword-quickref.md) —
+  tokens, rate limits, alert response, rotation, and standing up a control node.
 - Token age and store-validation alerting is in place.
 
 ## Remains
 
-The code has moved; the **docs have not**. Known stale spots found while deploying Langfuse (2026-08-02):
+### 1. versitygw IAM — the blocker
 
-- **[`integration/secrets.md`](../integration/secrets.md) is the important one** — it is the front door every other integration guide points at, and it still documents the `openbao` store end to end, including a key format that no longer works. Compare:
+OpenBao is still **load-bearing**, and not for secret delivery: both S3
+gateways keep their IAM account stores in it (`VGW_IAM_VAULT_*` against the
+`versitygw-iam` mount — see the `r730xd-s3-hot` and `r730xd-s3-bulk` roles).
+Every S3 account rides on this. OpenBao cannot be switched off until that store
+moves to another versitygw IAM backend, and that migration touches the S3 layer
+the rest of the platform sits on. Do this first — everything below is cleanup
+that is blocked behind it.
+
+### 2. Docs
+
+- **[`integration/secrets.md`](../integration/secrets.md) is the important
+  one** — the front door every other integration guide points at, still
+  documenting the `openbao` store end to end including a key format that no
+  longer works. Compare:
   - documented: `remoteRef: {key: grizzly-platform/stores/<app>, property: db_password}`
-  - actual: `remoteRef: {key: stores-<app>/db_password}` — item/field, not path/property.
-  A reader following it today writes an ExternalSecret that will not sync. Worth doing first.
-- Root [`INDEX.md`](../../INDEX.md) "Secrets (OpenBao)" section still frames OpenBao as the source of truth for K8s, and states Infisical holds the unseal keys — both need a pass against current reality.
-- Assorted inline comments still say "from OpenBao" where the value now comes from 1Password (e.g. `authentik/blueprints/career-scanner.yaml`). The equivalent comment in `authentik/helmrelease.yaml` was corrected in passing on 2026-08-02; others were left alone rather than half-migrating a doc set that is mid-move.
-- Decide the end state for the `openbao` store object and the `openbao-*` runbooks — whether OpenBao stays for the Ansible/AppRole path and non-ESO consumers, or is retired outright. That decision is what the doc rewrite should be written against, so make it before the rewrite.
+  - actual: `remoteRef: {key: stores-<app>/db_password}` — item/field, not
+    path/property.
+
+  A reader following it today writes an ExternalSecret that will not sync.
+- Root [`INDEX.md`](../../INDEX.md) "Secrets (OpenBao)" still frames OpenBao as
+  the source of truth for K8s and states Infisical holds the unseal keys.
+- [`TOOLS.md`](../../TOOLS.md) still lists `bao` with a persistent root session
+  as the secrets path.
+- Assorted inline comments still say "from OpenBao" where the value now comes
+  from 1Password (e.g. `authentik/blueprints/career-scanner.yaml`).
+
+### 3. Decommission
+
+Blocked behind (1). The unused `openbao` `ClusterSecretStore`; the
+`r730xd-openbao` and `r730xd-openbao-agent` roles; the `openbao-*` playbooks;
+the Prometheus targets and alert rules; the CA ConfigMap and
+`scripts/fetch-openbao-ca.sh`; the Infisical unseal-key project; and the server
+itself. The `openbao-*` runbooks retire with it. An ADR should record the
+retirement and supersede [ADR-023](../decisions/023-self-hosted-openbao-on-r730xd.md)
+and [ADR-024](../decisions/024-platform-secrets-on-openbao.md).
 
 ## Notes
 
-New work should use 1Password (`stores-<app>` / `platform-<app>` items) — [`integration/clickhouse.md`](../integration/clickhouse.md) and `kubernetes/infrastructure/langfuse/externalsecret.yaml` are current worked examples until `secrets.md` catches up.
+New work uses 1Password (`stores-<app>` / `platform-<app>` items) —
+[`integration/clickhouse.md`](../integration/clickhouse.md) and
+`kubernetes/infrastructure/langfuse/externalsecret.yaml` are current worked
+examples until `secrets.md` catches up.
 
-Authoritative once this closes: [`runbooks/onepassword-quickref.md`](../runbooks/onepassword-quickref.md) and a rewritten [`integration/secrets.md`](../integration/secrets.md). Delete this file and its `INDEX.md` line when the docs match the code.
+Authoritative once this closes:
+[`runbooks/onepassword-quickref.md`](../runbooks/onepassword-quickref.md) and a
+rewritten [`integration/secrets.md`](../integration/secrets.md). Delete this
+file and its `INDEX.md` line when the docs match the code.

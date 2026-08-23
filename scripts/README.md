@@ -12,6 +12,7 @@ Previous K8s cluster scripts are in `archive/pre-migration-2026/scripts/`.
 | `build-r730xd-iso.sh` | Build preseeded Debian 13 ISO for R730xd automated install |
 | `build-worker-iso.sh` | Build preseeded Debian 13 ISO for K8s worker nodes |
 | `configure-r730xd-jbod.sh` | Configure R730xd PERC H730 controller for JBOD mode via iDRAC racadm |
+| `derive-op-tokens.sh` | Derive this control node's 1Password service-account tokens from the encrypted Ansible vault |
 | `fetch-openbao-ca.sh` | Pull the current OpenBao CA from r730xd into the committed ConfigMap + local trust store |
 | `install-k8s-cli.sh` | Install Cilium/Hubble CLI tools for cluster debugging |
 | `metabase-add-database.sh` | Register a Metabase data source from 1Password credentials, using the read-only `metabase_ro` account |

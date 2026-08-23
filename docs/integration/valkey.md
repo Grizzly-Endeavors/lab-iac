@@ -16,7 +16,7 @@ For relational/durable data use [Postgres](postgres.md); for blobs use [S3](s3.m
 
 ## What isolation you get
 
-This is a **single shared instance with one `requirepass` password** (OpenBao `secret/grizzly-platform/stores/kv-cache`, key `password`) — there are no per-app ACL users today. Isolate your app's keyspace by convention:
+This is a **single shared instance with one `requirepass` password** (1Password item `stores-kv-cache`, field `password`) — there are no per-app ACL users today. Isolate your app's keyspace by convention:
 
 - **Namespace every key** with an app prefix: `myapp:session:<id>`, `myapp:cache:<k>`. This is the portable choice and what most clients/libraries expect.
 - Optionally pick a **logical DB number** (`redis://…:6379/3`, DBs 0–15) — but treat this as a courtesy, not a security boundary; the password is shared, so any consumer can `SELECT` any DB.
@@ -26,7 +26,7 @@ This is a **single shared instance with one `requirepass` password** (OpenBao `s
 ## Prerequisites
 
 - kv-cache running (`deploy-foundation-stores.yml`).
-- The shared password synced into your namespace from OpenBao (pattern: [secrets.md](secrets.md)) — there's no per-app provisioning play to run; the credential already exists.
+- The shared password synced into your namespace from 1Password (pattern: [secrets.md](secrets.md)) — there's no per-app provisioning play to run; the credential already exists.
 
 ## Wire it into your app
 

@@ -44,7 +44,7 @@ Check current usage against either token. This call is free — it does not itse
 OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/op-tokens/eso-reader)" op service-account ratelimit
 ```
 
-ExternalSecrets use `refreshPolicy: OnChange`, so ESO does not poll. Its only recurring traffic is hourly store validation (`refreshInterval: 1h` on the store) — 24 calls/day. That is deliberate: validation is what makes the store's `Ready` condition a liveness signal for the token.
+ExternalSecrets use `refreshPolicy: OnChange`, so ESO does not poll. Its only recurring traffic is daily store validation (`refreshInterval: 24h` on the store) — 1 call/day. That is deliberate: validation is what makes the store's `Ready` condition a liveness signal for the token, and daily is as actionable as hourly because a dead token doesn't disturb running workloads, it breaks the next rotation.
 
 ## Responding to alerts
 

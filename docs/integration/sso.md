@@ -66,7 +66,7 @@ Register the file in the authentik `kustomization.yaml`/`blueprints.configMaps` 
 
 ### 3 — Configure your app as the client
 
-Land the same two keys in your app's namespace via its own `ExternalSecret` (from the *same* OpenBao path — one source of truth), then point your OIDC library at Authentik's discovery doc:
+Land the same two keys in your app's namespace via its own `ExternalSecret` (from the *same* 1Password item — one source of truth), then point your OIDC library at Authentik's discovery doc:
 
 ```
 issuer:        https://sso.grizzly-endeavors.com/application/o/<app>/

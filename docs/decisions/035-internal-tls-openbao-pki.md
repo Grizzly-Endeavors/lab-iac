@@ -1,7 +1,7 @@
 # 035: Internal TLS foundation via OpenBao PKI
 
 **Date:** 2026-06-29
-**Status:** accepted
+**Status:** superseded by [ADR-073](073-retire-openbao.md) — never implemented; the cluster has only the Let's Encrypt and self-signed issuers, and the OpenBao PKI this depended on is retired
 **Relates to:** [ADR-019](019-ingress-and-tls-termination.md), [ADR-024](024-platform-secrets-on-openbao.md), [ADR-027](027-registry-zot.md), [ADR-032](032-registry-pullthrough-cache.md), [ADR-034](034-in-cluster-wireguard-encryption.md), [ADR-036](036-internal-dns-zone.md)
 **Tracking:** [#56](https://github.com/Grizzly-Endeavors/grizzly-platform/issues/56)
 

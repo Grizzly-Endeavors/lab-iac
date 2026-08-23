@@ -4,12 +4,7 @@ One line per runbook. See [`README.md`](README.md) for what runbooks are and whe
 
 ## Secrets
 
-- [onepassword-quickref.md](onepassword-quickref.md) — the vault, the two service account tokens, rate limits, alert response, and token rotation. **Start here for secrets.**
-- [openbao-quickref.md](openbao-quickref.md) — addresses, paths, policies, auth methods, path layout, rotate/add how-tos.
-- [openbao-add-secret.md](openbao-add-secret.md) — adding a secret from the control node's persistent root session.
-- [openbao-rotation.md](openbao-rotation.md) — unseal-key rotation procedure.
-- [openbao-disaster-recovery.md](openbao-disaster-recovery.md) — recovering OpenBao from a sealed/lost state.
-- [secrets-migration.md](secrets-migration.md) — Phase A–E guide for moving consumers onto OpenBao.
+- [onepassword-quickref.md](onepassword-quickref.md) — the vault, the three service account tokens, rate limits, alert response, token rotation, and standing up a control node. **The secrets runbook.**
 
 ## Mail (Stalwart)
 

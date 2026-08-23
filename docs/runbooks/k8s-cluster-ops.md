@@ -17,7 +17,7 @@ Run in order. `dell-inspiron-15` is the control plane; `quanta`/`intel-nuc`/`opt
 9. `ansible-playbook ansible/playbooks/setup-k8s-cicd.yml` — ARC runners + Argo Workflows.
 10. `ansible-playbook ansible/playbooks/setup-k8s-ingress.yml` — ingress-nginx + cert-manager + external access.
 11. `ansible-playbook ansible/playbooks/setup-k8s-registry-trust.yml` — containerd trust for the in-cluster registry.
-12. `ansible-playbook ansible/playbooks/setup-openbao-k8s-auth.yml` — Kubernetes auth method + ESO wiring on OpenBao.
+12. `ansible-playbook ansible/playbooks/setup-1password-eso.yml` — writes the ESO service account token + `onepassword` ClusterSecretStore wiring.
 
 Each playbook's own header states its specific prerequisites and verification commands — read those before running. The original run of this sequence (with narrative, screenshots-in-prose, and troubleshooting notes from the actual 2026 standup) is archived at [`archive/migration-2026/k8s-cluster-standup.md`](../../archive/migration-2026/k8s-cluster-standup.md) — useful for historical context, not for operating the cluster today.
 

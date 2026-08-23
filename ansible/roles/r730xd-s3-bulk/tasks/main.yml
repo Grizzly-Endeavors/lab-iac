@@ -1,7 +1,6 @@
 ---
 # r730xd-s3-bulk: versitygw S3 gateway on the MergerFS+SnapRAID bulk tier
-# (ADR-055). Modeled on r730xd-openbao: pinned image + systemd unit + mount
-# guard.
+# (ADR-055). Pinned image + systemd unit + mount guard.
 
 - name: Create s3-bulk directories
   ansible.builtin.file:

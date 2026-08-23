@@ -12,7 +12,7 @@ Each entry: what it is → decisions (*why*) · runbook (*how to operate*) · in
 Centralized CI gate — versioned `grizzly-gate` image runs per-language checks + SCA, cosign-signs passing image digests, Kyverno refuses unsigned images at admission. Gate *source* lives in its own repo ([Grizzly-Endeavors/grizzly-gate](https://github.com/Grizzly-Endeavors/grizzly-gate)); this platform owns the *integration*.
 - **Why:** [ADR-028](docs/decisions/028-centralized-ci-gate.md) (gate + cosign + Kyverno), [029](docs/decisions/029-gate-config-honest-map.md) (honest map), [030](docs/decisions/030-cross-ecosystem-sca.md) (SCA), [027](docs/decisions/027-registry-zot.md) (zot registry).
 - **How:** [runbooks/ci-gate.md](docs/runbooks/ci-gate.md) (operate) · **integrate:** [integration/deploy.md](docs/integration/deploy.md) (get an app onto the cluster through the gate) · overview [ci-gate.md](docs/ci-gate.md), threat model [ci-gate-coverage.md](docs/ci-gate-coverage.md).
-- **Code:** `.github/workflows/gate.yaml` (reusable), `kubernetes/infrastructure/argo-workflows/build-gate-image.yaml` (build), `kubernetes/infrastructure/kyverno{,-policies}/` (admission), `docker/grizzly-gate/` (pointer stub). Signing key: OpenBao `secret/grizzly-platform/cicd/cosign`.
+- **Code:** `.github/workflows/gate.yaml` (reusable), `kubernetes/infrastructure/argo-workflows/build-gate-image.yaml` (build), `kubernetes/infrastructure/kyverno{,-policies}/` (admission), `docker/grizzly-gate/` (pointer stub). Signing key: 1Password item `cicd-cosign`.
 
 ### GitLab CI runners
 Self-hosted GitLab Runner pool for a GitLab SaaS group, using the Kubernetes executor. Split across two namespaces so job code runs without the runner token, without Kubernetes API access, and without LAN reach — internet-only egress, rootless BuildKit for image builds.
@@ -20,12 +20,12 @@ Self-hosted GitLab Runner pool for a GitLab SaaS group, using the Kubernetes exe
 - **How:** [runbooks/gitlab-runners.md](docs/runbooks/gitlab-runners.md) (create the runner, token chain, BuildKit recipe, failure modes).
 - **Code:** `kubernetes/infrastructure/gitlab-runners/` + its own Flux Kustomization `kubernetes/clusters/grizzly-platform/gitlab-runners.yaml`.
 
-### Secrets (OpenBao)
-OpenBao on the R730xd (LAN-only) is the platform secrets source of truth. K8s reads via External Secrets Operator; Ansible reads via AppRole. Infisical holds *only* the unseal keys (bootstrap).
-- **Why:** [ADR-023](docs/decisions/023-self-hosted-openbao-on-r730xd.md) (self-hosted OpenBao), [024](docs/decisions/024-platform-secrets-on-openbao.md) (ESO + AppRole), [035](docs/decisions/035-internal-tls-openbao-pki.md) (PKI), [048](docs/decisions/048-first-party-app-secrets-domain.md) (app secrets domain).
-- **How:** [openbao-quickref.md](docs/runbooks/openbao-quickref.md) (**start here** — paths, policies, auth, rotate/add), [openbao-add-secret.md](docs/runbooks/openbao-add-secret.md), [openbao-rotation.md](docs/runbooks/openbao-rotation.md), [openbao-disaster-recovery.md](docs/runbooks/openbao-disaster-recovery.md), [secrets-migration.md](docs/runbooks/secrets-migration.md).
-- **Integrate:** [integration/secrets.md](docs/integration/secrets.md) (land a credential in your namespace via ESO / Ansible AppRole).
-- **Code:** `ansible/roles/r730xd-openbao/`, `ansible/playbooks/{deploy,bootstrap,rotate-openbao-keys,setup-openbao-k8s-auth}*.yml`, `kubernetes/infrastructure/external-secrets/`.
+### Secrets (1Password)
+The `grizzly-platform` 1Password vault is the platform secrets source of truth. K8s reads via External Secrets Operator (`onepassword` ClusterSecretStore); Ansible reads via `op` lookups. Three service account tokens reach it and nothing else does.
+- **Why:** [ADR-073](docs/decisions/073-retire-openbao.md) (1Password as the source of truth; OpenBao retired), [048](docs/decisions/048-first-party-app-secrets-domain.md) (app secrets domain).
+- **How:** [onepassword-quickref.md](docs/runbooks/onepassword-quickref.md) (**start here** — tokens, rate limits, alert response, rotation, standing up a control node).
+- **Integrate:** [integration/secrets.md](docs/integration/secrets.md) (land a credential in your namespace via ESO / Ansible).
+- **Code:** `ansible/playbooks/setup-1password-eso.yml`, `ansible/vars/onepassword_secrets.yml`, `kubernetes/infrastructure/external-secrets/`, `kubernetes/infrastructure/external-secrets-stores/onepassword-store.yaml`.
 
 ### Mail (Stalwart)
 Self-hosted Stalwart mail server, in-cluster, own-MX inbound (VPS HAProxy → WG tunnel) + SMTP2GO outbound smarthost, SPF/DKIM/DMARC aligned. Roundcube webmail behind Authentik. State on foundation Postgres + s3-hot blob store.

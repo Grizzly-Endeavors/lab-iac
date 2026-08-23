@@ -1,7 +1,7 @@
 # ADR-024: Platform Secrets on OpenBao (ESO for Kubernetes, AppRole for Ansible)
 
 **Date:** 2026-04-17
-**Status:** accepted
+**Status:** superseded by [ADR-073](073-retire-openbao.md) (OpenBao retired; 1Password is the secrets source of truth)
 
 ## Context
 

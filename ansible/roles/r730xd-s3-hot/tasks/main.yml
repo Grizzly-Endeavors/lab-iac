@@ -1,6 +1,6 @@
 ---
 # r730xd-s3-hot: versitygw S3 gateway on the ZFS hot tier (ADR-055).
-# Modeled on r730xd-openbao: pinned image + systemd unit + mount guard.
+# Pinned image + systemd unit + mount guard.
 
 - name: Create s3-hot directories
   ansible.builtin.file:

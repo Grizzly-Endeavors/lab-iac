@@ -8,11 +8,11 @@ metadata:
 #
 # The client_id/client_secret are NOT in git: they are injected into the worker
 # (which applies blueprints) via global.env as AUTHENTIK_CAREER_SCANNER_CLIENT_ID
-# / AUTHENTIK_CAREER_SCANNER_CLIENT_SECRET, sourced from OpenBao
-# secret/grizzly-platform/platform/authentik (oidc_career_scanner_client_id,
+# / AUTHENTIK_CAREER_SCANNER_CLIENT_SECRET, sourced from the 1Password item
+# platform-authentik (oidc_career_scanner_client_id,
 # oidc_career_scanner_client_secret) by the authentik ExternalSecret. The same
-# two OpenBao keys feed career-scanner's own ExternalSecret in its deploy/
-# chart, so both sides of the OIDC contract share one source of truth.
+# two fields feed career-scanner's own ExternalSecret in its deploy/ chart,
+# so both sides of the OIDC contract share one source of truth.
 #
 # v1 requests only openid/email/profile — any enrolled grizzly-users member may
 # use the app. Group-gating (a `groups` scope mapping + app-side claim check) is

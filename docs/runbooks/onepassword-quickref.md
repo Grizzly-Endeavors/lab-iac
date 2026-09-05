@@ -1,20 +1,42 @@
 # Runbook: 1Password platform secrets
 
-Every platform secret lives in the **`grizzly-platform`** 1Password vault. Two service account tokens read it, and nothing else does.
+Every platform secret lives in the **`grizzly-platform`** 1Password vault. Three service account tokens reach it, and nothing else does.
 
-| Consumer | Token | Where the token lives | How it reads |
+| Consumer | Token | Where the token lives | How it is used |
 |---|---|---|---|
-| External Secrets Operator | `eso-reader` | `onepassword-token` Secret in the `external-secrets` namespace, written by `ansible/playbooks/setup-1password-eso.yml` | `ClusterSecretStore/onepassword` → 22 ExternalSecrets |
+| External Secrets Operator | `eso-reader` | `onepassword-token` Secret in the `external-secrets` namespace, written by `ansible/playbooks/setup-1password-eso.yml` | `ClusterSecretStore/onepassword` → every ExternalSecret in the cluster |
 | Ansible | `ansible-reader` | `vault_op_service_account_token` in the ansible-vault encrypted `ansible/inventory/group_vars/all/vault.yml` | `community.general.onepassword` lookups in `ansible/vars/onepassword_secrets.yml` |
+| Operator + agent work from a control node | `operator` | `vault_op_operator_service_account_token`, same encrypted vault | The `op` CLI directly. The only token holding `write_items` — adding, editing and rotating secrets all go through it |
 
 Item naming is one item per domain, `<domain>-<name>`, field labels unchanged. **The field is part of the key**, not a separate property: `remoteRef.key: stores-postgres/password`.
+
+## Standing up a control node
+
+Every token is recoverable from **one** secret: `.vault_pass`. The authoritative
+copies live in the encrypted `ansible/inventory/group_vars/all/vault.yml`; the
+files under `~/.config/op-tokens/` are a local cache of it. So a replacement or
+additional control node is:
+
+```
+# 1. install the op CLI (verify the signature; 1Password's key is published at
+#    https://downloads.1password.com/linux/keys/1password.asc)
+# 2. restore .vault_pass to the repo root, mode 0600 — the one secret that
+#    cannot be derived, so keep it somewhere you can reach without this repo
+# 3. derive every token from the vault
+scripts/derive-op-tokens.sh
+```
+
+`.vault_pass` gates everything in `vault.yml`, and a service account token
+cannot be read back out of 1Password once minted — so if `.vault_pass` is lost,
+every token has to be re-minted by hand. Keep it in your 1Password *human*
+account, which is recoverable via your Emergency Kit.
 
 ## Rate limits
 
 Two separate ceilings, and the second one is the one that bites:
 
 - **Per token, per hour** — 1,000 reads, 100 writes.
-- **Per _account_, per 24h** — 1,000 requests, **shared across every service account token**. Exhausting it with one token breaks the other.
+- **Per _account_, per 24h** — 1,000 requests, **shared across every service account token**. Exhausting it with one token breaks the others.
 
 Check current usage against either token. This call is free — it does not itself count against the quota:
 
@@ -22,7 +44,7 @@ Check current usage against either token. This call is free — it does not itse
 OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/op-tokens/eso-reader)" op service-account ratelimit
 ```
 
-ExternalSecrets use `refreshPolicy: OnChange`, so ESO does not poll. Its only recurring traffic is hourly store validation (`refreshInterval: 1h` on the store) — 24 calls/day. That is deliberate: validation is what makes the store's `Ready` condition a liveness signal for the token.
+ExternalSecrets use `refreshPolicy: OnChange`, so ESO does not poll. Its only recurring traffic is daily store validation (`refreshInterval: 24h` on the store) — 1 call/day. That is deliberate: validation is what makes the store's `Ready` condition a liveness signal for the token, and daily is as actionable as hourly because a dead token doesn't disturb running workloads, it breaks the next rotation.
 
 ## Responding to alerts
 
@@ -51,18 +73,24 @@ eval $(op signin)
      --vault grizzly-platform:read_items
    op service-account create ansible-reader --expires-in 2159h \
      --vault grizzly-platform:read_items
+   op service-account create operator --expires-in 2159h \
+     --vault grizzly-platform:read_items,write_items
    ```
 
-2. **Store them.** Tokens live outside the repo at `~/.config/op-tokens/<name>`, mode 0600 — this repo is public.
+   `write_items` requires `read_items`. Only `operator` gets it — the two
+   automation identities never write, and scoping them down means a leaked
+   reader cannot rewrite what ESO then pushes into the cluster.
 
-3. **Update the encrypted vault.** `vault_op_eso_service_account_token` (ESO) and `vault_op_service_account_token` (Ansible):
+2. **Store them.** `vault.yml` is the source of truth; `~/.config/op-tokens/<name>` (mode 0600, outside the repo — this repo is public) is a cache of it. Put the new values in the vault first (next step), then run `scripts/derive-op-tokens.sh` on **every** control node. Re-derive rather than copying tokens between machines, so there is only ever one place that has to be right.
+
+3. **Update the encrypted vault.** `vault_op_eso_service_account_token` (ESO), `vault_op_service_account_token` (Ansible), and `vault_op_operator_service_account_token` (operator):
 
    ```
    ansible-vault edit ansible/inventory/group_vars/all/vault.yml \
      --vault-password-file .vault_pass
    ```
 
-4. **Record the mint date.** Set `onepassword_tokens_minted` in `ansible/inventory/group_vars/all/vars.yml` to today. This is recorded by hand because **a token's expiry cannot be read back from it** — `op whoami`, `op account get` and `op service-account` all omit it, and the token carries no `exp` claim. The age alert is derived from this date, so a stale value means the alert lies.
+4. **Record the mint date.** Set `onepassword_tokens_minted` in `ansible/inventory/group_vars/all/vars.yml` to today. Where the tokens were minted on different days, record the **oldest**, so the alert fires for whichever expires first. This is recorded by hand because **a token's expiry cannot be read back from it** — `op whoami`, `op account get` and `op service-account` all omit it, and the token carries no `exp` claim. The age alert is derived from this date, so a stale value means the alert lies.
 
 5. **Apply.** This rewrites the cluster Secret, republishes the mint-date metric, and reloads the Prometheus rules:
 
@@ -74,6 +102,7 @@ eval $(op signin)
 6. **Verify.** The store should re-validate against the new token, and Ansible should resolve a secret:
 
    ```
+   scripts/derive-op-tokens.sh          # re-derives and authenticates all three
    kubectl get clustersecretstore onepassword
    kubectl get externalsecret -A
    ```

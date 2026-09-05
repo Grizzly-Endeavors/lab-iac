@@ -36,6 +36,7 @@ One line per decision, grouped by domain. See [`README.md`](README.md) for what 
 - [007-3tb-data-drive-direct-to-pool](007-3tb-data-drive-direct-to-pool.md) — 3TB drive straight into the MergerFS pool.
 - [012-hot-services-on-zfs-minio-split](012-hot-services-on-zfs-minio-split.md) — hot services on ZFS; MinIO split obs/bulk (historical — MinIO since removed).
 - [055-s3-object-store-versitygw](055-s3-object-store-versitygw.md) — MinIO → Versity S3 Gateway.
+- [072-versitygw-iam-on-internal-file-store](072-versitygw-iam-on-internal-file-store.md) — versitygw keeps its S3 accounts in its own file store on ZFS, not an external IAM backend.
 - [056-redis-to-valkey](056-redis-to-valkey.md) — Redis → Valkey on a backend-agnostic kv-cache slot.
 - [070-zfs-pool-stable-device-paths](070-zfs-pool-stable-device-paths.md) — the ZFS pool addresses vdevs by `/dev/disk/by-id`, and the creation guard detects exported pools.
 
@@ -43,7 +44,7 @@ One line per decision, grouped by domain. See [`README.md`](README.md) for what 
 
 - [019-ingress-and-tls-termination](019-ingress-and-tls-termination.md) — VPS Caddy → WireGuard → NodePort → ingress-nginx topology.
 - [034-in-cluster-wireguard-encryption](034-in-cluster-wireguard-encryption.md) — transparent in-cluster encryption via Cilium WireGuard.
-- [035-internal-tls-openbao-pki](035-internal-tls-openbao-pki.md) — internal TLS foundation via OpenBao PKI.
+- [035-internal-tls-openbao-pki](035-internal-tls-openbao-pki.md) — internal TLS foundation via OpenBao PKI (never implemented; superseded by 073).
 - [036-internal-dns-zone](036-internal-dns-zone.md) — internal DNS zone for name-based addressing.
 
 ## Observability
@@ -65,13 +66,15 @@ One line per decision, grouped by domain. See [`README.md`](README.md) for what 
 - [057-container-builds-buildkit](057-container-builds-buildkit.md) — Kaniko → BuildKit for image builds.
 - [063-gate-runs-in-cluster](063-gate-runs-in-cluster.md) — the CI gate runs as a K8s Job (containerd-cached image, cosign key off the runners).
 - [069-kyverno-failurepolicy-tracks-failureaction](069-kyverno-failurepolicy-tracks-failureaction.md) — an Audit policy uses `failurePolicy: Ignore` so a webhook timeout can't block admission.
-- [071-self-hosted-gitlab-runners](071-self-hosted-gitlab-runners.md) — GitLab CI on a split namespace pair: job code gets internet-only egress, no token, no API, rootless BuildKit.
+- [071-self-hosted-gitlab-runners](071-self-hosted-gitlab-runners.md) — GitLab CI on a split namespace pair: job code gets internet-only egress, no token, no API, rootless BuildKit (superseded by 074).
+- [074-retire-gitlab-runners](074-retire-gitlab-runners.md) — **current.** Self-hosted GitLab runner pool retired; no GitLab CI runs on the cluster.
 
 ## Secrets
 
-- [023-self-hosted-openbao-on-r730xd](023-self-hosted-openbao-on-r730xd.md) — self-hosted OpenBao as the secrets source of truth.
-- [024-platform-secrets-on-openbao](024-platform-secrets-on-openbao.md) — platform secrets on OpenBao (ESO for K8s, AppRole for Ansible).
+- [073-retire-openbao](073-retire-openbao.md) — **current.** OpenBao retired; the `grizzly-platform` 1Password vault is the secrets source of truth.
 - [048-first-party-app-secrets-domain](048-first-party-app-secrets-domain.md) — first-party app secrets under a dedicated `apps/` domain.
+- [023-self-hosted-openbao-on-r730xd](023-self-hosted-openbao-on-r730xd.md) — self-hosted OpenBao as the secrets source of truth (superseded by 073).
+- [024-platform-secrets-on-openbao](024-platform-secrets-on-openbao.md) — platform secrets on OpenBao, ESO + AppRole (superseded by 073).
 
 ## Identity & invites (Authentik)
 

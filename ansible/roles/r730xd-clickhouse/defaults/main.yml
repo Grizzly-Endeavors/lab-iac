@@ -39,8 +39,8 @@ clickhouse_compose_dir: "/opt/foundation/clickhouse"
 # (inherited from group_vars/all/vars.yml)
 
 # Memory ceilings — set explicitly rather than letting ClickHouse size itself
-# against total RAM. This host also carries Postgres, kv-cache, versitygw x2,
-# OpenBao and the whole observability stack, and ClickHouse will happily take
+# against total RAM. This host also carries Postgres, kv-cache, versitygw x2
+# and the whole observability stack, and ClickHouse will happily take
 # whatever ratio of RAM it is allowed.
 #
 # The server-wide ceiling lives in group_vars/all/vars.yml, not here: the

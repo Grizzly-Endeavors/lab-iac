@@ -9,7 +9,7 @@
 
 collections:
   # openssh_keypair, x509_certificate, openssl_privatekey, openssl_csr —
-  # used by setup-claude-user.yml, setup-k8s-storage.yml, r730xd-openbao
+  # used by setup-claude-user.yml, setup-k8s-storage.yml
   - name: community.crypto
     version: ">=3.0.0"
 

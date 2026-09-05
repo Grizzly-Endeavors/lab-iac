@@ -31,14 +31,37 @@ for dev in /dev/sd? /dev/nvme?n?; do
 
     device_name=$(basename "$dev")
 
-    # Overall SMART health
-    if ! smartctl -H "$dev" 2>/dev/null | grep -q "PASSED\|OK"; then
-        alert "critical" "$CHECK" "health_${device_name}" "SMART health check FAILED for ${dev}"
-        write_metric_labeled "monitoring_smart_healthy" "device=\"${dev}\"" "0"
-    else
-        clear_alert "$CHECK" "health_${device_name}"
-        write_metric_labeled "monitoring_smart_healthy" "device=\"${dev}\"" "1"
-    fi
+    # Overall SMART health. Use smartctl's exit status rather than grepping
+    # the verdict text: bit 3 (value 8) is set only when the drive itself
+    # reports FAILING, while bits 0-2 mean smartctl couldn't get an answer
+    # (device busy, transport hiccup, identify timeout). A momentary
+    # no-answer is not a failing drive, so it gets one retry and is then
+    # logged as a check warning — not raised as a critical health alert.
+    verdict=""
+    for _ in 1 2; do
+        rc=0
+        smartctl -H "$dev" >/dev/null 2>&1 || rc=$?
+        if (( rc & 8 )); then
+            verdict="failed"; break
+        elif (( (rc & 7) == 0 )); then
+            verdict="passed"; break
+        fi
+        sleep 3
+    done
+
+    case "$verdict" in
+        failed)
+            alert "critical" "$CHECK" "health_${device_name}" "SMART health check FAILED for ${dev}"
+            write_metric_labeled "monitoring_smart_healthy" "device=\"${dev}\"" "0"
+            ;;
+        passed)
+            clear_alert "$CHECK" "health_${device_name}"
+            write_metric_labeled "monitoring_smart_healthy" "device=\"${dev}\"" "1"
+            ;;
+        *)
+            logger -t "monitoring" -p "user.warning" "[WARNING] ${CHECK}: smartctl could not read SMART status from ${dev} (exit ${rc}); health left unchanged this cycle"
+            ;;
+    esac
 
     # Temperature (SATA drives use attribute 194, NVMe uses smartctl -A)
     temp=""

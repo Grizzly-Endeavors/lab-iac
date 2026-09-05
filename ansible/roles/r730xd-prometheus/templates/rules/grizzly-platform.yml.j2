@@ -372,29 +372,6 @@ groups:
             ARC runner pod {{ '{{' }} $labels.pod {{ '}}' }}
             has restarted {{ '{{' }} $value | printf "%.0f" {{ '}}' }} times in 15 minutes
 
-      - alert: GitLabRunnerDown
-        expr: up{job="gitlab-runner"} == 0
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "GitLab Runner manager is unreachable — GitLab CI jobs will queue unpicked"
-
-      - alert: GitLabRunnerJobsQuotaExhausted
-        expr: >-
-          kube_resourcequota{namespace="gitlab-runner-jobs",resource="limits.cpu",type="used"}
-          / ignoring(type)
-          kube_resourcequota{namespace="gitlab-runner-jobs",resource="limits.cpu",type="hard"}
-          > 0.9
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: >-
-            gitlab-runner-jobs is at
-            {{ '{{' }} $value | humanizePercentage {{ '}}' }} of its CPU quota —
-            new CI job pods will be refused at admission
-
       - alert: ArgoControllerDown
         expr: up{job="argo-workflows",component="workflow-controller"} == 0
         for: 5m
@@ -699,69 +676,6 @@ groups:
             account lifetime at 90 days. Re-mint eso-reader and ansible-reader,
             then update onepassword_tokens_minted.
           runbook: "docs/runbooks/onepassword-quickref.md"
-
-  - name: openbao
-    rules:
-      # `up{job="openbao"} == 0` fires for EITHER "server down" OR
-      # "server sealed" — /v1/sys/health returns 503 when sealed, which
-      # Prometheus counts as a scrape failure. The operator triages via
-      # `systemctl status foundation-openbao openbao-auto-unseal` on
-      # r730xd. See docs/runbooks/openbao-disaster-recovery.md.
-      - alert: OpenbaoUnavailable
-        expr: up{job="openbao"} == 0
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: >-
-            OpenBao is unavailable (down or sealed)
-            on {{ '{{' }} $labels.instance {{ '}}' }}
-          runbook: "docs/runbooks/openbao-disaster-recovery.md"
-
-      # Systemd-level signal: the openbao-auto-unseal.service failed at
-      # boot. This catches the case where OpenBao itself is up but
-      # auto-unseal couldn't fetch keys from Infisical.
-      - alert: OpenbaoAutoUnsealFailed
-        expr: node_systemd_unit_state{name="openbao-auto-unseal.service",state="failed"} == 1
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: >-
-            openbao-auto-unseal.service is in failed state on
-            {{ '{{' }} $labels.instance {{ '}}' }} — check Infisical reachability + auth
-
-      # Audit log volume: if the audit sink can't write, OpenBao refuses
-      # every subsequent request (audit is a hard requirement once a
-      # device is declared). Two thresholds — the warning gives time to
-      # triage, the critical page says "fix it or OpenBao bricks."
-      - alert: OpenbaoAuditLogDiskFull
-        expr: |
-          (node_filesystem_avail_bytes{mountpoint="/mnt/zfs"} /
-           node_filesystem_size_bytes{mountpoint="/mnt/zfs"}) < 0.15
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: >-
-            ZFS foundation tier <15% free on
-            {{ '{{' }} $labels.instance {{ '}}' }} —
-            OpenBao audit log growth may starve other foundation stores
-
-      - alert: OpenbaoAuditLogDiskCritical
-        expr: |
-          (node_filesystem_avail_bytes{mountpoint="/mnt/zfs"} /
-           node_filesystem_size_bytes{mountpoint="/mnt/zfs"}) < 0.05
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: >-
-            ZFS foundation tier <5% free on
-            {{ '{{' }} $labels.instance {{ '}}' }} —
-            OpenBao will start rejecting requests when the audit sink
-            can't write. Free space now or manually disable the audit
-            device as a last resort: `bao audit disable main/`.
 
   - name: endpoints
     rules:

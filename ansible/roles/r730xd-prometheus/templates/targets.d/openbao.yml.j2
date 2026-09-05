@@ -1,9 +1,0 @@
-# Managed by Ansible — r730xd-prometheus role
-# OpenBao telemetry target. The prometheus.yml.j2 openbao job scrapes
-# /v1/sys/metrics with a token from the OpenBao Agent (issue #41) and sets
-# tls_config.insecure_skip_verify (self-signed cert, same host as Prometheus).
-- targets:
-    - "{{ r730xd_ip }}:8200"
-  labels:
-    env: "grizzly-platform"
-    instance: "r730xd"

@@ -2,17 +2,21 @@
 # Owns the versitygw (bulk / MergerFS+SnapRAID) container lifecycle so it
 # sequences after the MergerFS pool is mounted. Container-level
 # restart=unless-stopped handles crash recovery; this unit handles boot
-# ordering and the mount guard (refuse to start the gateway onto an empty
+# ordering and the mount guards (refuse to start the gateway onto an empty
 # mountpoint if MergerFS failed to mount). RequiresMountsFor resolves and
-# orders after the /mnt/pool mount unit automatically.
+# orders after the underlying mount units automatically. Objects live on
+# the MergerFS pool, but the IAM account store is on ZFS, so this unit
+# waits on both.
 
 [Unit]
 Description=versitygw S3 gateway — bulk tier (Docker Compose)
 Requires=docker.service
-After=docker.service network-online.target
+After=docker.service network-online.target zfs-mount.service
 Wants=network-online.target
-# Data lives on the MergerFS pool; refuse to start if the mount is missing.
-RequiresMountsFor={{ s3_bulk_data_dir }}
+# Objects on MergerFS, IAM account store on ZFS. Refuse to start if either
+# mount is missing — a gateway started onto an unmounted IAM dir comes up
+# with an empty account store and locks out every non-root S3 consumer.
+RequiresMountsFor={{ s3_bulk_data_dir }} {{ s3_bulk_iam_dir }}
 
 [Service]
 Type=oneshot

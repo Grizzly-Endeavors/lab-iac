@@ -61,30 +61,6 @@ scrape_configs:
           - "/etc/prometheus/targets.d/k8s-etcd.yml"
         refresh_interval: 30s
 
-  # OpenBao internal telemetry. Scrapes /v1/sys/metrics?format=prometheus,
-  # which requires a token (prometheus-readonly policy → read sys/metrics).
-  # The OpenBao Agent (r730xd-openbao-agent role) auto-authenticates via
-  # AppRole and writes a short-TTL token to a file sink, bind-mounted here
-  # as /etc/prometheus/openbao/token. `up{job="openbao"} == 0` now means the
-  # server is down/sealed OR the agent token is missing — see
-  # docs/runbooks/openbao-quickref.md and issue #41.
-  - job_name: "openbao"
-    scheme: https
-    metrics_path: /v1/sys/metrics
-    params:
-      format: ["prometheus"]
-    authorization:
-      credentials_file: /etc/prometheus/openbao/token
-    tls_config:
-      # Self-signed CA from the r730xd-openbao role. The Prometheus
-      # container doesn't have the host CA bundle; skipping verify is
-      # acceptable because the target is the same host (r730xd→r730xd).
-      insecure_skip_verify: true
-    file_sd_configs:
-      - files:
-          - "/etc/prometheus/targets.d/openbao.yml"
-        refresh_interval: 30s
-
 {% if prometheus_k8s_apiserver_target is defined and prometheus_k8s_apiserver_target %}
   - job_name: "kube-apiserver"
     scheme: https
@@ -180,12 +156,6 @@ scrape_configs:
     file_sd_configs:
       - files:
           - "/etc/prometheus/targets.d/k8s-argo.yml"
-        refresh_interval: 30s
-
-  - job_name: "gitlab-runner"
-    file_sd_configs:
-      - files:
-          - "/etc/prometheus/targets.d/k8s-gitlab-runner.yml"
         refresh_interval: 30s
 
   # zot OCI registry metrics (Prometheus extension on the registry HTTP port,

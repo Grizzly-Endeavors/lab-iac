@@ -1,7 +1,7 @@
 # ADR-071: Self-Hosted GitLab Runners in an Isolated Namespace Pair
 
 **Date:** 2026-08-13
-**Status:** Accepted
+**Status:** Superseded by [ADR-074](074-retire-gitlab-runners.md)
 **Relates to:** [ADR-057](057-container-builds-buildkit.md) (rootless BuildKit for image builds), [ADR-063](063-gate-runs-in-cluster.md) (the GitHub-side runner/gate split), [ADR-016](016-single-control-plane.md) (single control plane), [ADR-003](003-foundation-stores-on-r730xd.md) (foundation stores)
 
 ## Context

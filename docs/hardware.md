@@ -93,16 +93,16 @@ All four nodes are live on v1.33.10. Cilium CNI, Flux GitOps.
 | OS IP | `{{ r730xd_ip }}` |
 | Boot drive | Samsung SSD 850 EVO 250GB in bay 12 (rear 2.5"), non-RAID |
 | Storage pools | See "Storage layout" below |
-| Role | Storage backbone, observability stack, foundation stores (Postgres / kv-cache / ClickHouse / s3-hot / s3-bulk / OpenBao), ingress tunnel terminator |
+| Role | Storage backbone, observability stack, foundation stores (Postgres / kv-cache / ClickHouse / s3-hot / s3-bulk), ingress tunnel terminator |
 
 **Storage layout (R730xd):**
 
 | Pool | Drives | Usable | Purpose |
 |------|--------|--------|---------|
 | MergerFS pool (`/mnt/pool`) | 5×3TB data + 2×4TB SnapRAID parity (bays 0/3 parity, 1/2/4/5/8 data) | 15 TB | Bulk/cold data, K8s `nfs-mergerfs` StorageClass, s3-bulk (versitygw) |
-| ZFS pool `tank` (`/mnt/zfs`) | 3×2TB raidz1 (bays 9/10/11) | ~3.6 TB | Latency-sensitive services (Postgres/kv-cache/ClickHouse/s3-hot (versitygw)/OpenBao/Prometheus/Loki/Tempo/Grafana), K8s `iscsi-zfs` StorageClass (via democratic-csi) |
+| ZFS pool `tank` (`/mnt/zfs`) | 3×2TB raidz1 (bays 9/10/11) | ~3.6 TB | Latency-sensitive services (Postgres/kv-cache/ClickHouse/s3-hot (versitygw)/Prometheus/Loki/Tempo/Grafana), K8s `iscsi-zfs` StorageClass (via democratic-csi) |
 
-Decisions: [ADR-003](decisions/003-foundation-stores-on-r730xd.md) (foundation stores), [ADR-004](decisions/004-observability-stack-on-r730xd.md) (observability), [ADR-004 zfs](decisions/004-zfs-iscsi-for-k8s-storage.md) (ZFS+iSCSI), [ADR-007](decisions/007-3tb-data-drive-direct-to-pool.md) (3TB direct mount), [ADR-012](decisions/012-hot-services-on-zfs-minio-split.md) (hot services on ZFS), [ADR-015](decisions/015-dynamic-storage-provisioning.md) (democratic-csi), [ADR-023](decisions/023-self-hosted-openbao-on-r730xd.md) (OpenBao).
+Decisions: [ADR-003](decisions/003-foundation-stores-on-r730xd.md) (foundation stores), [ADR-004](decisions/004-observability-stack-on-r730xd.md) (observability), [ADR-004 zfs](decisions/004-zfs-iscsi-for-k8s-storage.md) (ZFS+iSCSI), [ADR-007](decisions/007-3tb-data-drive-direct-to-pool.md) (3TB direct mount), [ADR-012](decisions/012-hot-services-on-zfs-minio-split.md) (hot services on ZFS), [ADR-015](decisions/015-dynamic-storage-provisioning.md) (democratic-csi).
 
 ### proxy-vps — Hetzner Cloud
 

@@ -16,7 +16,7 @@ One foundation Postgres 16 instance on the R730xd backs every app's relational s
 ## Prerequisites
 
 - Foundation Postgres running (`deploy-foundation-stores.yml`).
-- A password seeded in 1Password on the `stores-<app>` item in the `grizzly-platform` vault, under field `db_password`. Generate it **without single quotes** (`openssl rand -base64 36`) — the provisioning play passes it through psql's `:'pw'` literal and a `'` breaks the quoting. (Secrets pattern: [secrets.md](secrets.md).)
+- A password in the 1Password item `stores-<app>` under field `db_password`. Generate it **without single quotes** (`openssl rand -base64 36`) — the provisioning play passes it through psql's `:'pw'` literal and a `'` breaks the quoting. (Secrets pattern: [secrets.md](secrets.md).)
 
 ## 1 — Provision the role + database
 
@@ -66,8 +66,7 @@ data:
       key: stores-<app>/db_password
 ```
 
-The key is `<item>/<field>` on the `onepassword` `ClusterSecretStore` — not a path
-plus a `property`.
+The key is `<item>/<field>` on the `onepassword` `ClusterSecretStore` — not a path plus a `property`.
 
 Then build the DSN in your app from parts you already know — host `10.0.0.200`, port `5432`, db + user `<app>`, password from the synced secret:
 

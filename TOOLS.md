@@ -15,11 +15,10 @@ Everything below is on `PATH` here. No "why" column — check the relevant runbo
 **Kubernetes:** `kubectl`, `helm`, `flux`, `k9s`, `cilium`, `hubble`, `argo`
 - `kubectl kustomize` covers standalone kustomize — no separate `kustomize` binary.
 
-**Secrets:** `bao` (OpenBao — server runs on r730xd, `BAO_ADDR=https://10.0.0.200:8200`; persistent root session via `~/.vault-token` + CA on this node, `bao kv put/get/patch` directly — see `docs/runbooks/openbao-add-secret.md`), `infisical` (bootstrap-only: unseal keys), `op` (1Password CLI — authenticates via `OP_SERVICE_ACCOUNT_TOKEN`; `op read op://<vault>/<item>/<field>`)
+**Secrets:** `op` (1Password CLI — the only secrets path). Authenticates via `OP_SERVICE_ACCOUNT_TOKEN`; three tokens are cached at `~/.config/op-tokens/{eso-reader,ansible-reader,operator}` and re-derivable with `scripts/derive-op-tokens.sh`. Read with `op read op://grizzly-platform/<item>/<field>`; only the `operator` token can write. See `docs/runbooks/onepassword-quickref.md`.
 
 **IaC / linting:** `ansible`, `ansible-playbook`, `ansible-vault`, `ansible-lint`, `pre-commit`, `shellcheck`, `yamllint`
-- Ansible collections: `community.crypto`, `community.general`, `community.hashi_vault`, `community.aws`, `community.dns`, `community.docker`, `kubernetes.core`, `ansible.posix` — see `ansible/requirements.yml` for version floors.
-- `hvac` (python3) — backs `community.hashi_vault` OpenBao lookups.
+- Ansible collections: `community.crypto`, `community.general`, `community.aws`, `community.dns`, `community.docker`, `kubernetes.core`, `ansible.posix` — see `ansible/requirements.yml` for version floors.
 
 **Data/text:** `yq` (mikefarah), `jq`, `envsubst`
 
@@ -49,7 +48,7 @@ Storage backbone + foundation stores + observability host.
   - `docker exec foundation-s3-hot <versitygw admin commands>` — see `docs/runbooks/versitygw-cli.md`
 
 ### iDRAC on r730xd (`10.0.0.203`) — `sshpass -p $IDRAC_PASSWORD ssh root@10.0.0.203`
-Out-of-band BMC. `racadm` is the only surface (storage/bay queries, power actions). No Enterprise license — no virtual media. Password in OpenBao, not this repo.
+Out-of-band BMC. `racadm` is the only surface (storage/bay queries, power actions). No Enterprise license — no virtual media. Password in 1Password (`platform-idrac`), not this repo.
 
 ### proxy-vps (Hetzner, port 2222) — `ssh -p 2222 bearf@<proxy_vps_public_ip>` (or `ssh proxy-vps` per `~/.ssh/config`)
 Public ingress edge. Caddy (reverse proxy + wildcard TLS), UFW, HAProxy (mail L4 ingress).
@@ -69,7 +68,7 @@ DAL Admin CLI over SSH (IPv6 link-local for bench access, LAN IP `10.0.0.1` post
 ## Verifying the local list
 
 ```fish
-for t in git gh docker kubectl helm flux k9s cilium hubble argo bao infisical op ansible ansible-lint pre-commit shellcheck yamllint yq jq envsubst psql mc logcli promtool amtool wg nmap dig nslookup sshpass netbird gpg openssl terraform cosign aws valkey-cli
+for t in git gh docker kubectl helm flux k9s cilium hubble argo op ansible ansible-lint pre-commit shellcheck yamllint yq jq envsubst psql mc logcli promtool amtool wg nmap dig nslookup sshpass netbird gpg openssl terraform cosign aws valkey-cli
     if command -v $t >/dev/null
         echo "OK   $t"
     else

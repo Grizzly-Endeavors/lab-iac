@@ -12,7 +12,7 @@ registry: [ADR-027](../decisions/027-registry-zot.md).
 | Gate image + harness | external repo [grizzly-gate](https://github.com/Grizzly-Endeavors/grizzly-gate) (Dockerfile, `config/` tree, `harness/`) |
 | Gate build | `kubernetes/infrastructure/argo-workflows/build-gate-image.yaml` (clones grizzly-gate) + the gate repo's own `.github/workflows/build-gate-image.yaml` |
 | Reusable CI job | `.github/workflows/gate.yaml` (called by apps; see `.github/templates/ci/deploy-with-gate.yaml.example`). Runs the gate as a K8s Job in `arc-runners` ([ADR-063](../decisions/063-gate-runs-in-cluster.md)): the runner tars the checkout to the `build-cache` bucket, submits the Job, streams its logs. Node containerd caches the gate image across runs. |
-| Signing key | OpenBao `secret/grizzly-platform/cicd/cosign`; ESO → `cosign-signing-key` in `arc-runners` |
+| Signing key | 1Password item `cicd-cosign`; ESO → `cosign-signing-key` in `arc-runners` |
 | Deploy boundary | `kubernetes/infrastructure/kyverno/` + `kubernetes/infrastructure/kyverno-policies/` |
 | Registry | zot, `kubernetes/infrastructure/registry/` |
 
@@ -49,7 +49,7 @@ registry: [ADR-027](../decisions/027-registry-zot.md).
    **Rollback:** `git revert` the registry commit and push — Flux restores
    `registry:2.8.3`, which still has its original data at the old storage paths
    (zot wrote elsewhere), so the previous state returns intact.
-2. **Generate the cosign keypair and store it in OpenBao:**
+2. **Generate the cosign keypair and store it in 1Password:**
    ```sh
    COSIGN_PASSWORD=<pw> cosign generate-key-pair   # -> cosign.key, cosign.pub
    bao kv put secret/grizzly-platform/cicd/cosign \
@@ -127,7 +127,7 @@ admission.
   `with:`. Roll back by pointing it at a previous tag — no rebuild needed. (Note:
   `gate-config.json` became mandatory in **v0.3.0**; repos pinned to ≤v0.2.0 don't
   need it, repos on ≥v0.3.0 fail closed without it.)
-- **Rotate the signing key:** generate a new keypair, `bao kv put` it (step 2),
+- **Rotate the signing key:** generate a new keypair, write it to `cicd-cosign` (step 2),
   update the public key in the policy (step 3), rebuild nothing — re-sign images on
   next CI run. Keep Audit until everything is re-signed under the new key, then
   Enforce. Old signatures under the retired key fail verification by design.
@@ -165,7 +165,7 @@ Check ESO:
 kubectl -n arc-runners get externalsecret cosign-signing-key
 kubectl -n arc-runners describe externalsecret cosign-signing-key   # SecretSynced?
 ```
-Then confirm the OpenBao path exists (`bao kv get secret/grizzly-platform/cicd/cosign`).
+Then confirm the item exists (`op item get cicd-cosign --vault grizzly-platform`).
 
 **Deploy denied at admission (Enforce) →**
 ```sh
@@ -198,7 +198,7 @@ alert covers this.
   `kubectl -n arc-runners logs job/gate-<repo>-<run>-<attempt>`; Kyverno
   decisions → `kubectl -n kyverno logs` + Pod events on denied workloads;
   zot → `kubectl -n registry logs`.
-- **Dependencies:** gate needs runners + zot + (to sign) OpenBao/ESO; Kyverno needs
+- **Dependencies:** gate needs runners + zot + (to sign) 1Password/ESO; Kyverno needs
   the cosign public key in-policy and reachable zot. The deploy boundary depends on
   Kyverno being up.
 - **Recovery:** all components are Flux-reconciled Deployments/HelmReleases —

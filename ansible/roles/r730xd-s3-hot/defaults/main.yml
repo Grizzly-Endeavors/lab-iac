@@ -3,9 +3,8 @@
 #
 # Stateless S3 gateway storing objects as plain POSIX files on the ZFS hot
 # dataset tank/foundation/s3-hot (recordsize 1M). Durability rides on ZFS;
-# IAM accounts live in OpenBao (Vault IAM mode, set up by
-# setup-versitygw-iam.yml). Config is 100% flags/env (versitygw holds no
-# config state) — see docs/runbooks/versitygw-cli.md.
+# IAM accounts live in versitygw's own file store on ZFS (ADR-072).
+# Config is 100% flags/env (versitygw holds no config state) — see docs/runbooks/versitygw-cli.md.
 #
 # S3 API:  http://<r730xd_ip>:7070
 # Metrics: http://<r730xd_ip>:9102/metrics  (statsd-exporter sidecar;
@@ -36,16 +35,13 @@ s3_hot_server_unit_name: "foundation-s3-hot.service"
 # S3 region string
 s3_hot_region: "us-east-1"
 
-# OpenBao Vault-IAM backend (mount + approle from setup-versitygw-iam.yml)
-s3_hot_iam_vault_endpoint: "{{ openbao_api_addr }}"
-s3_hot_iam_vault_mount_path: "versitygw-iam"
-s3_hot_iam_vault_storage_path: "s3-hot"   # per-instance account namespace under the shared mount
-s3_hot_iam_vault_ca_path: "{{ openbao_tls_ca_path | default('/etc/openbao/tls/ca.crt') }}"
+# Internal file IAM (ADR-072) — versitygw owns this directory and keeps its
+# S3 account records in it. Backed by ZFS on both tiers so the account store
+# has real-time redundancy and rides the pool snapshots.
+s3_hot_iam_dir: "/mnt/zfs/foundation/versitygw-iam/s3-hot"
 
-# Root credentials + shared IAM AppRole creds — sourced from OpenBao via
+# Root credentials — sourced from 1Password via
 # group_vars/all/vars.yml (inherited at play time; commented here so the
 # role file itself never hardcodes secrets):
 #   s3_hot_root_access_key:     "{{ vault_s3_hot_root_access_key }}"
 #   s3_hot_root_secret_key:     "{{ vault_s3_hot_root_secret_key }}"
-#   versitygw_iam_role_id:      "{{ vault_versitygw_iam_role_id }}"
-#   versitygw_iam_role_secret:  "{{ vault_versitygw_iam_secret_id }}"

@@ -1,7 +1,7 @@
 # ADR-023: Self-Hosted OpenBao on R730xd
 
 **Date:** 2026-04-17
-**Status:** Accepted
+**Status:** superseded by [ADR-073](073-retire-openbao.md) (OpenBao retired; 1Password is the secrets source of truth)
 
 ## Context
 

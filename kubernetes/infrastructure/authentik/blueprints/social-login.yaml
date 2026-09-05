@@ -30,6 +30,13 @@ metadata:
 # SECRET}, sourced from the 1Password platform-authentik item by the authentik
 # ExternalSecret. See docs/decisions/039-...-invitation-enrollment.md.
 #
+# `icon` on each source points at a mark we serve ourselves from the
+# authentik-brand-assets nginx deployment, drawn for the dark login chip: white
+# Discord/GitHub marks, full-colour Google G. Like the brand image fields, this
+# field takes an external http(s):// URL. authentik's own bundled marks are flat
+# monochrome and are inverted by its dark theme, which is wrong on our chip —
+# see the source-button block in brand.yaml and ADR-075.
+#
 # ENTRY ORDER MATTERS: `!KeyOf` resolves to an already-applied entry, so every
 # target must appear *above* its references. Order here is therefore:
 # flow -> enrollment stages -> sources -> login-page stage -> stage bindings.
@@ -158,6 +165,7 @@ entries:
       name: Discord
       provider_type: discord
       enabled: true
+      icon: "https://sso.grizzly-endeavors.com/brand/discord.svg"
       consumer_key: !Env [AUTHENTIK_DISCORD_CLIENT_ID, ""]
       consumer_secret: !Env [AUTHENTIK_DISCORD_CLIENT_SECRET, ""]
       # Link a new provider login to an existing user with the same (verified)
@@ -177,6 +185,7 @@ entries:
       name: GitHub
       provider_type: github
       enabled: true
+      icon: "https://sso.grizzly-endeavors.com/brand/github.svg"
       consumer_key: !Env [AUTHENTIK_GITHUB_CLIENT_ID, ""]
       consumer_secret: !Env [AUTHENTIK_GITHUB_CLIENT_SECRET, ""]
       # See the Discord source above: link-by-verified-email so both providers
@@ -193,6 +202,7 @@ entries:
       name: Google
       provider_type: google
       enabled: true
+      icon: "https://sso.grizzly-endeavors.com/brand/google.svg"
       consumer_key: !Env [AUTHENTIK_GOOGLE_CLIENT_ID, ""]
       consumer_secret: !Env [AUTHENTIK_GOOGLE_CLIENT_SECRET, ""]
       # Link-by-verified-email, same as the other sources. Google emails are

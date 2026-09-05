@@ -87,6 +87,7 @@ One line per decision, grouped by domain. See [`README.md`](README.md) for what 
 - [043-invite-admin-ui-forward-auth](043-invite-admin-ui-forward-auth.md) — invite admin UI gated by Authentik forward-auth.
 - [049-app-visibility-scoped-via-group-policy-bindings](049-app-visibility-scoped-via-group-policy-bindings.md) — app-library visibility via group policy bindings.
 - [066-email-otp-passwordless-signin](066-email-otp-passwordless-signin.md) — email one-time-code enrollment; the code is the credential (no password).
+- [075-authentik-self-served-social-marks](075-authentik-self-served-social-marks.md) — social provider marks served by us and drawn for the dark login chip, overriding Authentik's dark-theme icon invert.
 
 ## Apps & services
 

@@ -32,10 +32,15 @@ configMapGenerator:
   # Brand images served by authentik-brand-assets (nginx) and mounted at
   # /usr/share/nginx/html/brand/. Binary files land in the ConfigMap's
   # binaryData. Fixed name (no hash) so the Deployment volume can reference it.
+  # The provider marks are drawn for the dark login chip and are referenced by
+  # each OAuth source's `icon` — see blueprints/social-login.yaml.
   - name: authentik-brand-assets
     namespace: authentik
     files:
       - brand-assets/logo.webp
       - brand-assets/favicon.png
+      - brand-assets/discord.svg
+      - brand-assets/github.svg
+      - brand-assets/google.svg
 generatorOptions:
   disableNameSuffixHash: true

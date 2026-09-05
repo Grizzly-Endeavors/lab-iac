@@ -23,6 +23,7 @@ configMapGenerator:
       - blueprints/grizzly-webmail.yaml
       - blueprints/nextcloud.yaml
       - blueprints/career-scanner.yaml
+      - blueprints/immich.yaml
       - blueprints/langfuse.yaml
       - blueprints/metabase.yaml
       - blueprints/gameservers-admin.yaml

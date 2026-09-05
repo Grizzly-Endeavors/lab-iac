@@ -13,6 +13,37 @@
     - "{{ postgres_backup_dir }}"
     - "{{ postgres_compose_dir }}"
 
+# The foundation image is stock postgres plus pgvector + VectorChord. It is built
+# here on the host rather than pulled: the foundation stores must come up without
+# depending on the in-cluster registry, which itself sits downstream of them.
+- name: Deploy the foundation Postgres Dockerfile
+  ansible.builtin.copy:
+    src: Dockerfile
+    dest: "{{ postgres_compose_dir }}/Dockerfile"
+    owner: root
+    group: root
+    mode: "0644"
+  register: postgres_dockerfile
+
+- name: Check whether the foundation Postgres image is already built
+  ansible.builtin.command: docker image inspect {{ postgres_image }}
+  register: postgres_image_present
+  changed_when: false
+  failed_when: false
+
+- name: Build the foundation Postgres image
+  ansible.builtin.command:
+    cmd: >-
+      docker build
+      --build-arg POSTGRES_VERSION={{ postgres_version }}
+      --build-arg PGVECTOR_VERSION={{ postgres_pgvector_version }}
+      --build-arg VECTORCHORD_VERSION={{ postgres_vectorchord_version }}
+      -t {{ postgres_image }}
+      .
+    chdir: "{{ postgres_compose_dir }}"
+  when: postgres_image_present.rc != 0 or postgres_dockerfile.changed
+  notify: Restart foundation-postgres
+
 - name: Deploy Postgres docker-compose.yml
   ansible.builtin.template:
     src: docker-compose.yml.j2

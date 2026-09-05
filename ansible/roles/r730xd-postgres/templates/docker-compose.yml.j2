@@ -29,6 +29,8 @@ services:
       - "-c"
       - "max_wal_size={{ postgres_max_wal_size }}"
       - "-c"
+      - "shared_preload_libraries={{ postgres_shared_preload_libraries }}"
+      - "-c"
       - "log_min_duration_statement={{ postgres_log_min_duration_statement }}"
       - "-c"
       - "listen_addresses=*"

@@ -1,0 +1,166 @@
+---
+# setup-immich-stores.yml — foundation-side provisioning for the Immich lab app
+# (manifests live in the lab-apps repo, applied by Flux).
+#
+# Immich keeps its relational state on the foundation PostgreSQL and its cache
+# on the shared kv-cache. Its photo library is a POSIX tree on NFS, not S3, so
+# there is no bucket to provision here — see ADR-072 for why.
+#
+# This play does two things:
+#
+#   1. The `immich` database + login role, following the standard pattern: a
+#      plain non-superuser that owns its own database and nothing else.
+#   2. The vector-search extensions Immich needs, created inside that database
+#      as `postgres`. Immich normally installs these itself, which is why
+#      upstream asks for superuser — the platform declines to hand a shared
+#      instance's superuser to one app, so provisioning them here is what buys
+#      that back (ADR-072).
+#
+# Credentials come from 1Password `stores-immich` (db_password), provisioned
+# here and read cross-domain by Immich's K8s ExternalSecret. Kept under
+# grizzly-platform/ rather than lab-apps/ because the ansible-platform-read
+# AppRole policy only grants grizzly-platform/* (mirrors Nextcloud).
+#
+# Prerequisites:
+#   - Foundation Postgres running with pgvector + VectorChord in the image and
+#     vchord.so preloaded (deploy-foundation-stores.yml --tags postgres).
+#   - 1Password seeded: stores-immich with key db_password. Generate it WITHOUT
+#     single quotes (e.g. `openssl rand -base64 36`) — the SQL below passes it
+#     through psql's :'pw' literal and a `'` breaks the quoting.
+#
+# Usage:
+#   ansible-playbook -i ansible/inventory ansible/playbooks/setup-immich-stores.yml \
+#     --vault-password-file .vault_pass -v
+#
+# Run just one half:
+#   ... --tags db
+#   ... --tags extensions
+
+- name: Provision Immich database on foundation Postgres
+  hosts: r730xd
+  become: yes
+  gather_facts: no
+
+  pre_tasks:
+    - name: Load 1Password-sourced platform secrets
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../vars/onepassword_secrets.yml"
+      tags: [always]
+
+    - name: Verify foundation Postgres container is running
+      ansible.builtin.command: docker exec foundation-postgres pg_isready -U postgres
+      changed_when: false
+      tags: [always]
+
+  tasks:
+    # psql -U postgres connects over the container's local socket (trust auth) —
+    # no superuser password needed. The role password is passed via psql's
+    # :'pw' literal (safe quoting); the SQL is fed on stdin (docker exec -i),
+    # because psql only interpolates variables for stdin/-f input, NOT for -c.
+    - name: Check whether the immich role exists
+      ansible.builtin.command: >-
+        docker exec foundation-postgres
+        psql -U postgres -tAc
+        "SELECT 1 FROM pg_roles WHERE rolname='immich'"
+      register: immich_role
+      changed_when: false
+      tags: [db]
+
+    - name: Create the immich login role
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail;
+          printf "CREATE ROLE immich LOGIN PASSWORD :'pw';\n"
+          | docker exec -i foundation-postgres
+          psql -U postgres -v ON_ERROR_STOP=1 -v pw="$PGPW"
+        executable: /bin/bash
+      environment:
+        PGPW: "{{ vault_immich_db_password }}"
+      when: immich_role.stdout != "1"
+      no_log: true
+      tags: [db]
+
+    - name: Keep the immich role password in sync with 1Password
+      ansible.builtin.shell:
+        cmd: >-
+          set -o pipefail;
+          printf "ALTER ROLE immich LOGIN PASSWORD :'pw';\n"
+          | docker exec -i foundation-postgres
+          psql -U postgres -v ON_ERROR_STOP=1 -v pw="$PGPW"
+        executable: /bin/bash
+      environment:
+        PGPW: "{{ vault_immich_db_password }}"
+      no_log: true
+      changed_when: false
+      tags: [db]
+
+    - name: Check whether the immich database exists
+      ansible.builtin.command: >-
+        docker exec foundation-postgres
+        psql -U postgres -tAc
+        "SELECT 1 FROM pg_database WHERE datname='immich'"
+      register: immich_db
+      changed_when: false
+      tags: [db]
+
+    - name: Create the immich database owned by the immich role
+      ansible.builtin.command: >-
+        docker exec foundation-postgres
+        psql -U postgres -v ON_ERROR_STOP=1
+        -c "CREATE DATABASE immich OWNER immich"
+      when: immich_db.stdout != "1"
+      tags: [db]
+
+    # The extensions are created as `postgres` because all four are untrusted and
+    # need superuser. `vector` and `vchord` back smart search and facial
+    # recognition; `cube`/`earthdistance` back geocoding. Immich checks the
+    # installed versions at startup and refuses to run if any is missing or out of
+    # its accepted range.
+    #
+    # An Immich release that widens its required version range needs the image
+    # pins in the r730xd-postgres role bumped and `ALTER EXTENSION <name> UPDATE`
+    # run here — that manual step is the accepted cost of not granting Immich
+    # superuser (ADR-072).
+    - name: Read the extensions already installed in the immich database
+      ansible.builtin.command: >-
+        docker exec foundation-postgres
+        psql -U postgres -d immich -tAc
+        "SELECT extname FROM pg_extension"
+      register: immich_ext_installed
+      changed_when: false
+      tags: [extensions]
+
+    # Only the missing ones are created, so a re-run reports no change. psql
+    # emits the CREATE EXTENSION command tag even when IF NOT EXISTS skips, so
+    # its output cannot be used to detect that.
+    - name: Create the vector-search and geocoding extensions in the immich database
+      ansible.builtin.command: >-
+        docker exec foundation-postgres
+        psql -U postgres -d immich -v ON_ERROR_STOP=1
+        -c "CREATE EXTENSION {{ item }} CASCADE"
+      loop:
+        - vector
+        - vchord
+        - cube
+        - earthdistance
+      when: item not in immich_ext_installed.stdout_lines
+      tags: [extensions]
+
+    - name: Report the extensions installed in the immich database
+      ansible.builtin.command: >-
+        docker exec foundation-postgres
+        psql -U postgres -d immich -tAc
+        "SELECT extname || ' ' || extversion FROM pg_extension ORDER BY extname"
+      register: immich_ext_list
+      changed_when: false
+      tags: [extensions]
+
+    - name: Show the immich store summary
+      ansible.builtin.debug:
+        msg:
+          - "=== Immich foundation stores ==="
+          - "Postgres: postgresql://immich:<password>@{{ r730xd_ip }}:5432/immich"
+          - "Extensions: {{ immich_ext_list.stdout_lines | join(', ') }}"
+          - "kv-cache: redis://:<shared password>@{{ r730xd_ip }}:6379/3 (no provisioning needed)"
+          - "Library: NFS PVC on the MergerFS pool, provisioned by the lab-apps manifests"
+      tags: [extensions]

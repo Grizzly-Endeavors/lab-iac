@@ -63,9 +63,10 @@ Land the password in your namespace with an `ExternalSecret` (full pattern in [s
 data:
   - secretKey: DB_PASSWORD
     remoteRef:
-      key: grizzly-platform/stores/<app>
-      property: db_password
+      key: stores-<app>/db_password
 ```
+
+The key is `<item>/<field>` on the `onepassword` `ClusterSecretStore` — not a path plus a `property`.
 
 Then build the DSN in your app from parts you already know — host `10.0.0.200`, port `5432`, db + user `<app>`, password from the synced secret:
 
@@ -74,6 +75,27 @@ postgresql://<app>:${DB_PASSWORD}@10.0.0.200:5432/<app>
 ```
 
 Keep pool sizes sane: the instance is tuned for `max_connections = 100` shared across **all** apps. A handful of pooled connections per app is plenty; don't open 50.
+
+## Extensions
+
+The foundation image is stock `postgres:16` plus **pgvector** and **VectorChord**, built on the R730xd from `ansible/roles/r730xd-postgres/files/Dockerfile` with `vchord.so` preloaded ([ADR-072](../decisions/072-immich-on-foundation-stores-and-sso.md)). Together with the base image's contrib set, that makes these available to any database:
+
+`vector`, `vchord` (vector search) · `cube`, `earthdistance` (geospatial) · `pg_trgm`, `unaccent` (text search)
+
+Extensions are **per-database and opt-in** — availability is not installation. Your database has none until someone runs `CREATE EXTENSION`, and that needs superuser, which app roles deliberately do not have. So creating them is a task in your `setup-<app>-stores.yml`, run as `postgres`:
+
+```yaml
+- name: Create the extensions in the <app> database
+  ansible.builtin.command: >-
+    docker exec foundation-postgres
+    psql -U postgres -d <app> -v ON_ERROR_STOP=1
+    -c "CREATE EXTENSION IF NOT EXISTS {{ item }} CASCADE"
+  loop:
+    - vector
+    - vchord
+```
+
+`setup-immich-stores.yml` is the worked example. Needing an extension the image doesn't carry means adding it to that Dockerfile and its pinned versions in the role's defaults, then re-running the play — check with a maintainer first, since it rebuilds and restarts the instance every app shares.
 
 ## Verify
 

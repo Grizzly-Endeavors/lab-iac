@@ -1,0 +1,80 @@
+version: 1
+metadata:
+  name: grizzly-immich-oidc
+# Registers Immich as an OIDC client of Authentik: a confidential OAuth2
+# provider, a role-claim scope mapping, and the application bound to them.
+#
+# The client_id/client_secret are NOT in git: they are injected into the worker
+# (which applies blueprints) via global.env as AUTHENTIK_IMMICH_CLIENT_ID /
+# AUTHENTIK_IMMICH_CLIENT_SECRET, sourced from 1Password platform-authentik
+# (oidc_immich_client_id, oidc_immich_client_secret) by the authentik
+# ExternalSecret. The same two fields feed Immich's own ExternalSecret in
+# lab-apps, so both sides of the OIDC contract share one source of truth.
+entries:
+  # Role scope mapping — emits the `immich_role` claim Immich reads to decide
+  # who is an administrator. Immich accepts exactly "admin" or "user", so this
+  # returns one of those rather than a group list. Membership in grizzly-admins
+  # is what confers Immich admin, which keeps the role — not a hand-picked user
+  # — the thing that grants it, and revoking the group revokes Immich admin on
+  # next login.
+  - model: authentik_providers_oauth2.scopemapping
+    id: immich-role-scope
+    identifiers:
+      name: "Immich OIDC: role"
+    attrs:
+      scope_name: immich_role
+      description: "Grants Immich administrator to grizzly-admins members"
+      expression: |
+        groups = [group.name for group in request.user.groups.all()]
+        return {
+            "immich_role": "admin" if "grizzly-admins" in groups else "user",
+        }
+
+  - model: authentik_providers_oauth2.oauth2provider
+    id: immich-provider
+    identifiers:
+      name: immich
+    attrs:
+      client_type: confidential
+      client_id: !Env [AUTHENTIK_IMMICH_CLIENT_ID, ""]
+      client_secret: !Env [AUTHENTIK_IMMICH_CLIENT_SECRET, ""]
+      # Required since Authentik 2026.x made grant types explicit: without this
+      # grant_types is [] and the authorize endpoint rejects every code request
+      # as "invalid_request" (SSO never completes).
+      grant_types:
+        - authorization_code
+        - refresh_token
+      # Three redirect URIs, all required by Immich:
+      #   /auth/login      — signing in from the web UI
+      #   /user-settings   — linking an existing account to OAuth
+      #   app.immich:///oauth-callback — the mobile app's deep link. Upstream
+      #     documents this as mandatory for iOS/Android; without it the phone
+      #     apps cannot complete SSO even though the browser can. The triple
+      #     slash is correct (empty authority), not a typo.
+      redirect_uris:
+        - matching_mode: strict
+          url: https://photos.grizzly-endeavors.com/auth/login
+        - matching_mode: strict
+          url: https://photos.grizzly-endeavors.com/user-settings
+        - matching_mode: strict
+          url: app.immich:///oauth-callback
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf immich-role-scope
+
+  - model: authentik_core.application
+    identifiers:
+      slug: immich
+    attrs:
+      name: Immich
+      provider: !KeyOf immich-provider
+      meta_launch_url: https://photos.grizzly-endeavors.com
+      meta_description: "Photos and videos"
+      policy_engine_mode: any

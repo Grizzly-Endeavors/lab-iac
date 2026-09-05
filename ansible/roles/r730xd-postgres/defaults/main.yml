@@ -4,9 +4,23 @@
 #
 # Connection: postgresql://<user>:<password>@<r730xd_ip>:5432/<database>
 
-# Image
+# Image — built on the host from files/Dockerfile: stock postgres plus pgvector
+# and VectorChord, the vector-search extensions Immich needs (ADR-072). The tag
+# encodes all three versions so a version bump produces a distinct image rather
+# than silently reusing a stale one.
+#
+# Both extension versions are pinned deliberately. Verify against the current
+# release before changing either: PGDG's apt index for pgvector
+# (`apt-cache policy postgresql-<ver>-pgvector` inside the container) and
+# https://github.com/tensorchord/VectorChord/releases for VectorChord. A pin
+# PGDG has since dropped fails the build loudly, which is the intent — a shared
+# database should not drift its extension versions on a rebuild.
 postgres_version: "16"
-postgres_image: "postgres:{{ postgres_version }}"
+postgres_pgvector_version: "0.8.6-1.pgdg13+1"
+postgres_vectorchord_version: "1.1.1"
+# `+` is legal in a Debian version but not in a Docker tag, so it is folded to
+# `-` here; the pin itself keeps its exact apt form above.
+postgres_image: "grizzly/foundation-postgres:{{ postgres_version }}-pgvector{{ postgres_pgvector_version | replace('+', '-') }}-vchord{{ postgres_vectorchord_version }}"
 
 # Networking (host network mode — binds directly to host interface)
 postgres_port: 5432
@@ -30,6 +44,10 @@ postgres_maintenance_work_mem: "512MB"
 postgres_max_connections: 100
 postgres_wal_buffers: "64MB"
 postgres_max_wal_size: "2GB"
+
+# VectorChord is a shared library and must be preloaded at server start, or
+# CREATE EXTENSION vchord fails. Comma-separate if another library is ever added.
+postgres_shared_preload_libraries: "vchord.so"
 
 # Logging
 postgres_log_min_duration_statement: 1000  # log queries slower than 1s

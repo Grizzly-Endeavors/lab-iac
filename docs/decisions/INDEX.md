@@ -94,6 +94,7 @@ One line per decision, grouped by domain. See [`README.md`](README.md) for what 
 - [062-residuum-platform-assistant](062-residuum-platform-assistant.md) — Residuum agent on the R730xd; stock image + runtime tools volume, relay-only access, PR-only mutation.
 - [064-langfuse-llm-observability](064-langfuse-llm-observability.md) — Langfuse as the shared LLM-observability service, on foundation stores with ClickHouse added as a fifth.
 - [065-metabase-analytics-service](065-metabase-analytics-service.md) — Metabase as the analytics front-end, reading every data source through read-only store accounts.
+- [072-immich-on-foundation-stores-and-sso](072-immich-on-foundation-stores-and-sso.md) — Immich on foundation stores + Authentik SSO; pgvector/VectorChord added to the shared Postgres, library on NFS.
 
 ## Mail (Stalwart)
 

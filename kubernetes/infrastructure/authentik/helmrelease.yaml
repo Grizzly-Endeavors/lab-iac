@@ -149,6 +149,17 @@ spec:
             secretKeyRef:
               name: authentik-secrets
               key: oidc_career_scanner_client_secret
+        # Immich OIDC pair, consumed by blueprints/immich.yaml via !Env.
+        - name: AUTHENTIK_IMMICH_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: authentik-secrets
+              key: oidc_immich_client_id
+        - name: AUTHENTIK_IMMICH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: authentik-secrets
+              key: oidc_immich_client_secret
         # Langfuse OIDC pair, consumed by blueprints/langfuse.yaml via !Env.
         - name: AUTHENTIK_LANGFUSE_CLIENT_ID
           valueFrom:

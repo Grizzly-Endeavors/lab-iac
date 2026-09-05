@@ -35,11 +35,12 @@ services:
       resources:
         limits:
           memory: {{ kv_cache_exporter_memory_limit }}
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9121/metrics || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
+    # No container healthcheck: redis_exporter ships on scratch, with no shell and
+    # no wget, so a CMD-SHELL probe can never pass and pins the container at
+    # "unhealthy" no matter how well it is running. The real signal is better and
+    # already exists — the KvCacheDown alert fires on `kv_cache_up == 0`,
+    # which checks that the exporter can actually reach the store rather than only
+    # that its own port answers.
 
   blackbox-exporter:
     image: {{ blackbox_exporter_image }}

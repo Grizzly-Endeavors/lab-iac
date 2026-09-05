@@ -111,27 +111,39 @@
       when: immich_db.stdout != "1"
       tags: [db]
 
-    # Created as `postgres` because all four are untrusted extensions that need
-    # superuser. `vector` and `vchord` back smart search and facial recognition;
-    # `cube`/`earthdistance` back geocoding. Immich checks the installed versions
-    # at startup and refuses to run if any is missing or out of its accepted range.
+    # The extensions are created as `postgres` because all four are untrusted and
+    # need superuser. `vector` and `vchord` back smart search and facial
+    # recognition; `cube`/`earthdistance` back geocoding. Immich checks the
+    # installed versions at startup and refuses to run if any is missing or out of
+    # its accepted range.
     #
-    # IF NOT EXISTS makes this idempotent. An Immich release that widens its
-    # required version range needs the image pins in the r730xd-postgres role
-    # bumped and `ALTER EXTENSION <name> UPDATE` run here — that manual step is
-    # the accepted cost of not granting Immich superuser (ADR-072).
+    # An Immich release that widens its required version range needs the image
+    # pins in the r730xd-postgres role bumped and `ALTER EXTENSION <name> UPDATE`
+    # run here — that manual step is the accepted cost of not granting Immich
+    # superuser (ADR-072).
+    - name: Read the extensions already installed in the immich database
+      ansible.builtin.command: >-
+        docker exec foundation-postgres
+        psql -U postgres -d immich -tAc
+        "SELECT extname FROM pg_extension"
+      register: immich_ext_installed
+      changed_when: false
+      tags: [extensions]
+
+    # Only the missing ones are created, so a re-run reports no change. psql
+    # emits the CREATE EXTENSION command tag even when IF NOT EXISTS skips, so
+    # its output cannot be used to detect that.
     - name: Create the vector-search and geocoding extensions in the immich database
       ansible.builtin.command: >-
         docker exec foundation-postgres
         psql -U postgres -d immich -v ON_ERROR_STOP=1
-        -c "CREATE EXTENSION IF NOT EXISTS {{ item }} CASCADE"
+        -c "CREATE EXTENSION {{ item }} CASCADE"
       loop:
         - vector
         - vchord
         - cube
         - earthdistance
-      register: immich_ext
-      changed_when: "'CREATE EXTENSION' in immich_ext.stderr or 'CREATE EXTENSION' in immich_ext.stdout"
+      when: item not in immich_ext_installed.stdout_lines
       tags: [extensions]
 
     - name: Report the extensions installed in the immich database

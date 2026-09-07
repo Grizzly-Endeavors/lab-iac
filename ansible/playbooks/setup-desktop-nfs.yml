@@ -1,0 +1,44 @@
+---
+# Connect this control workstation to the foundation NFS pool on demand.
+# Run: ansible-playbook -i localhost, -c local ansible/playbooks/setup-desktop-nfs.yml
+- name: Configure the desktop NFS automount
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../inventory/group_vars/all/network.yml
+  tasks:
+    - name: Configure the pool mount in fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '^\S+\s+/mnt/pool\s+'
+        line: "{{ r730xd_ip }}:/mnt/pool /mnt/pool nfs rw,soft,timeo=50,_netdev,nofail,x-systemd.automount,x-gvfs-show,x-gvfs-name=R730xd%20NFS 0 0"
+      register: desktop_nfs_mount
+
+    - name: Stop the pool mount to activate changed automount configuration
+      ansible.builtin.systemd_service:
+        name: mnt-pool.mount
+        state: stopped
+      when: desktop_nfs_mount.changed
+
+    - name: Load mount units generated from fstab
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: desktop_nfs_mount.changed
+
+    - name: Start the on-demand pool mount
+      ansible.builtin.systemd_service:
+        name: mnt-pool.automount
+        state: started
+
+    - name: Verify access triggers the NFS mount
+      ansible.builtin.stat:
+        path: /mnt/pool/Scratch
+      register: desktop_nfs_scratch
+
+    - name: Verify the pool is accessible
+      ansible.builtin.assert:
+        that:
+          - desktop_nfs_scratch.stat.isdir | default(false)
+        fail_msg: The foundation NFS pool is not accessible at /mnt/pool.

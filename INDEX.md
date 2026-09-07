@@ -29,6 +29,7 @@ Self-hosted Stalwart mail server, in-cluster, own-MX inbound (VPS HAProxy → WG
 - **Code:** `kubernetes/infrastructure/stalwart/` + `kubernetes/clusters/grizzly-platform/stalwart.yaml`, `ansible/playbooks/configure-stalwart.yml` + `ansible/files/stalwart/plan.json`.
 
 ### Storage & foundation stores
+- **Desktop share:** [runbooks/desktop-nfs.md](docs/runbooks/desktop-nfs.md) (on-demand `/mnt/pool` mount).
 Durable app state lives on the R730xd foundation stores, never node disks: Postgres, kv-cache (Valkey), ClickHouse (OLAP, `:8123`/`:9000`), and versitygw S3 (s3-hot on ZFS `:7070`, s3-bulk on MergerFS `:7072`).
 - **Why:** [ADR-003](docs/decisions/003-foundation-stores-on-r730xd.md) (foundation stores), [004-zfs](docs/decisions/004-zfs-iscsi-for-k8s-storage.md), [015](docs/decisions/015-dynamic-storage-provisioning.md) (democratic-csi), [055](docs/decisions/055-s3-object-store-versitygw.md) (versitygw), [056](docs/decisions/056-redis-to-valkey.md) (Valkey), [072](docs/decisions/072-immich-on-foundation-stores-and-sso.md) (vector extensions in the Postgres image).
 - **Postgres image:** built on the R730xd from `ansible/roles/r730xd-postgres/files/Dockerfile` — stock `postgres:16` plus pgvector + VectorChord, with `vchord.so` preloaded. Extension versions are pinned in the role's defaults; a bump is a rebuild, not a tag change.
